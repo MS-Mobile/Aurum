@@ -136,7 +136,7 @@ class TunerViewModel @Inject constructor(
     private fun requestRender() {
         val state = _uiState.value
         val shot = state.shot ?: return
-        val request = RenderRequest(shot, state.effectiveParams)
+        val request = RenderRequest(shot, state.draft)
         if (request == renderRequests.value && state.rendered != null) return
         _uiState.update { it.copy(isRendering = true) }
         renderRequests.value = request
@@ -144,7 +144,7 @@ class TunerViewModel @Inject constructor(
 
     private suspend fun render(request: RenderRequest) {
         val rendered = try {
-            previewRenderer.render(request.shot, request.params)
+            previewRenderer.render(request.shot, request.settings)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -164,7 +164,7 @@ class TunerViewModel @Inject constructor(
         }
     }
 
-    private data class RenderRequest(val shot: PreviewShot, val params: EnhanceParams)
+    private data class RenderRequest(val shot: PreviewShot, val settings: ProcessingSettings)
 
     enum class Tab(val params: List<EnhanceParam>) {
         COLOUR(listOf(EnhanceParam.WHITE_BALANCE, EnhanceParam.WARMTH, EnhanceParam.VIBRANCE, EnhanceParam.GOLDEN)),
@@ -213,10 +213,6 @@ class TunerViewModel @Inject constructor(
         /** The factor `hdr` is scaled by for this shot, or null when it isn't scaled. */
         val hdrScale: Double?
             get() = ev100?.takeIf { draft.scaleHdrBySceneLight }?.let(SceneAdaptiveHdr::scale)
-
-        /** The params a photo of this scene would be processed with. */
-        val effectiveParams: EnhanceParams
-            get() = hdrScale?.let { draft.params.copy(hdr = draft.params.hdr * it) } ?: draft.params
 
         fun modifiedCount(tab: Tab): Int = tab.params.count { it.isModified(draft.params) }
     }

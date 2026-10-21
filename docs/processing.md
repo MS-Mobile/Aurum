@@ -16,7 +16,8 @@ match it pixel for pixel (see [Validation](#validation)).
 | Stage order | `di/ProcessingModule.kt` |
 | Runs the stages, logs per-stage timings | `processing/PhotoEnhancer.kt` |
 | Per-photo HDR adjustment from the scene light | `processing/SceneAdaptiveHdr.kt` |
-| Decode, rotate, enhance, encode, EXIF, save | `capture/PhotoProcessor.kt` |
+| Decode, rotate, scene params, enhance (shared by saved photos and the tuner preview) | `capture/PhotoPipeline.kt` |
+| Encode, EXIF, save | `capture/PhotoProcessor.kt` |
 | Reference script | `tools/corrigir_foto.py` |
 
 ## Pipeline
@@ -188,7 +189,7 @@ L += noise * grain * midtones * (0.35 + 0.65 * mask)
 ## Adaptive HDR
 
 The app adds one thing the script doesn't have: `hdr` is scaled per photo by the scene light, because the full strength looks
-flat in good lighting. `PhotoProcessor` reads the capture's EXIF and calls `SceneAdaptiveHdr`:
+flat in good lighting. `PhotoPipeline` reads the capture's EXIF and calls `SceneAdaptiveHdr`:
 
 ```
 EV100 = log2(fNumber² / exposureSeconds) - log2(ISO / 100)
@@ -205,8 +206,11 @@ against more bright-light shots. `SceneAdaptiveHdrTest` covers the formula.
 ## Tuning on the phone
 
 The tune button on the camera opens the processing tuner (`tuner/`). It takes a preview shot with the bound camera, keeps it
-in memory only (never on disk), and renders it with the real pipeline at a long side of about 1600–3200 px
-(`PreviewRenderer`). Every slider change renders again, newest value only. **Hold to compare** shows the unprocessed shot. The switch button
+in memory only (never on disk), and renders it through `PhotoPipeline`, the same full resolution path a saved photo
+takes, with the same decoder, rotation, scene light scaling and steps (`PreviewRenderer`). Only the result is
+downscaled, to a long side of 2048 px, for the screen. Every slider change renders again, newest value only, and takes
+about as long as processing a photo (1–2 s at 12 MP). A render waits while a photo is being processed, since both
+need several hundred MB. **Hold to compare** shows the unprocessed shot. The switch button
 alternates between the back and front camera (for the camera screen too) and shoots again once the camera has rebound;
 front shots are shown mirrored, like the viewfinder, although the saved photo isn't.
 
@@ -215,8 +219,10 @@ front shots are shown mirrored, like the viewfinder, although the saved photo is
 - *Reset to default preset* goes back to `EnhanceParams.IPHONE`. Values that differ from it are highlighted, and each tab
   shows how many of its params changed.
 - Turning off *Scale by scene light* skips [Adaptive HDR](#adaptive-hdr), so `hdr` is used as set.
-- The preview is downscaled, so `grain` and `grainSize` (in pixels) look coarser than in the full resolution photo, and
-  *1:1* zooms the preview rather than showing true pixels.
+- What the preview can't match: the grain is random, so its pattern differs from the saved photo's (its strength and
+  size don't), and the saved photo is JPEG-encoded at `jpegQuality`, which doesn't show at screen size.
+- The preview shows the photo downscaled, so fine grain looks softer than when the saved photo is viewed at 100%; the
+  zoom button enlarges the 2048 px preview, which is still not 1:1.
 - The ranges and steps come from `processing/EnhanceParam.kt`.
 
 ## Validation

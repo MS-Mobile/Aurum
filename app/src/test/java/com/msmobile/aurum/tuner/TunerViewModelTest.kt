@@ -1,6 +1,5 @@
 package com.msmobile.aurum.tuner
 
-import android.graphics.Bitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import com.msmobile.aurum.R
 import com.msmobile.aurum.capture.CameraSession
@@ -91,11 +90,12 @@ class TunerViewModelTest {
         // Assert
         val expected = EnhanceParams.IPHONE.copy(exposure = 0.1)
         assertEquals(expected, viewModel.uiState.value.draft.params)
-        verify(requireNotNull(rendererRef.value)).render(any(), eq(expected))
+        verify(requireNotNull(rendererRef.value))
+            .render(any(), eq(ProcessingSettings(params = expected, scaleHdrBySceneLight = false)))
     }
 
     @Test
-    fun opened_brightSceneAndScalingOn_rendersWithScaledHdr() = runTest(dispatcher) {
+    fun opened_brightSceneAndScalingOn_showsScaleAndRendersWithScaling() = runTest(dispatcher) {
         // Arrange
         val rendererRef = MockReferenceHolder<PreviewRenderer>()
         val viewModel = createViewModel(ev100 = 14.0, rendererRef = rendererRef)
@@ -106,11 +106,11 @@ class TunerViewModelTest {
 
         // Assert
         assertEquals(0.4, requireNotNull(viewModel.uiState.value.hdrScale), 1e-9)
-        verify(requireNotNull(rendererRef.value)).render(any(), eq(EnhanceParams.IPHONE.copy(hdr = EnhanceParams.IPHONE.hdr * 0.4)))
+        verify(requireNotNull(rendererRef.value)).render(any(), eq(ProcessingSettings(scaleHdrBySceneLight = true)))
     }
 
     @Test
-    fun scaleHdrToggled_brightScene_rendersWithFullHdr() = runTest(dispatcher) {
+    fun scaleHdrToggled_brightScene_rendersWithoutScaling() = runTest(dispatcher) {
         // Arrange
         val rendererRef = MockReferenceHolder<PreviewRenderer>()
         val viewModel = createViewModel(ev100 = 14.0, rendererRef = rendererRef)
@@ -123,7 +123,7 @@ class TunerViewModelTest {
 
         // Assert
         assertNull(viewModel.uiState.value.hdrScale)
-        verify(requireNotNull(rendererRef.value)).render(any(), eq(EnhanceParams.IPHONE))
+        verify(requireNotNull(rendererRef.value)).render(any(), eq(ProcessingSettings(scaleHdrBySceneLight = false)))
     }
 
     @Test
@@ -298,7 +298,7 @@ class TunerViewModelTest {
         sessionRef?.value = session
         val renderer = mock<PreviewRenderer> {
             on { prepare(any()) } doAnswer {
-                PreviewShot(original = mock<ImageBitmap>(), ev100 = ev100, source = mock<Bitmap>())
+                PreviewShot(original = mock<ImageBitmap>(), ev100 = ev100, photo = photo())
             }
             on { render(any(), any()) } doReturn RenderedPreview(image = mock<ImageBitmap>(), millis = RENDER_MILLIS)
         }
