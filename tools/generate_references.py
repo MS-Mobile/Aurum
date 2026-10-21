@@ -17,8 +17,8 @@ from pathlib import Path
 import cv2
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = ROOT / "app/src/main/assets/corrigir_foto.py"
-PHOTO = ROOT / "app/src/main/assets/foto_teste.jpg"
+SCRIPT = ROOT / "tools/corrigir_foto.py"
+PHOTO = ROOT / "tools/foto_teste.jpg"
 OUT_DIR = ROOT / "app/src/androidTest/assets/reference"
 
 

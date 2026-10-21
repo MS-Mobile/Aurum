@@ -77,10 +77,6 @@ android {
     buildFeatures {
         compose = true
     }
-    androidResources {
-        // The reference script, spec and test photo live in assets/ but are not needed at runtime.
-        ignoreAssetsPattern = "!*.py:!*.pyc:!<dir>__pycache__:!*.md:!*.jpg"
-    }
     experimentalProperties["android.experimental.enableScreenshotTest"] = true
 }
 

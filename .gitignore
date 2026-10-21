@@ -38,7 +38,7 @@ google-services.json
 
 # Personal test photo and the port references generated from it (tools/generate_references.py).
 # Kept local only; the instrumented PSNR test needs them on disk.
-app/src/main/assets/foto_teste.jpg
+tools/foto_teste.jpg
 app/src/androidTest/assets/reference/
 
 # Python bytecode from running the reference script

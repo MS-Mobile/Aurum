@@ -2,7 +2,7 @@ Crie um app de câmera Android em Kotlin, SEM interpretador Python.
 Ao tirar a foto, ela é processada automaticamente por um port em Kotlin do script `corrigir_foto.py` e salva na galeria já corrigida.
 
 ## Script de referência
-- Caminho: "C:\Users\Fabricio\Projects\Aurum\app\src\main\assets\corrigir_foto.py"
+- Caminho: "C:\Users\Fabricio\Projects\Aurum\tools\corrigir_foto.py"
 - Ele corrige fotos com visual de iPhone: balanço de branco, níveis, CLAHE, HDR local, vibrance, tom dourado, realce de textura e grão de pele.
 - O resultado do preset `--iphone` já foi validado e é o padrão do app. O port deve reproduzir o resultado do script, não reinventar os algoritmos.
 
