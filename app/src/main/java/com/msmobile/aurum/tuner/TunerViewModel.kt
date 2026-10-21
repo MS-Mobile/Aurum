@@ -167,7 +167,15 @@ class TunerViewModel @Inject constructor(
     private data class RenderRequest(val shot: PreviewShot, val settings: ProcessingSettings)
 
     enum class Tab(val params: List<EnhanceParam>) {
-        COLOUR(listOf(EnhanceParam.WHITE_BALANCE, EnhanceParam.WARMTH, EnhanceParam.VIBRANCE, EnhanceParam.GOLDEN)),
+        COLOUR(
+            listOf(
+                EnhanceParam.WHITE_BALANCE,
+                EnhanceParam.WARMTH,
+                EnhanceParam.VIBRANCE,
+                EnhanceParam.GOLDEN,
+                EnhanceParam.STRETCH_SATURATION,
+            ),
+        ),
         LIGHT(listOf(EnhanceParam.EXPOSURE, EnhanceParam.CLAHE_WEIGHT, EnhanceParam.CURVE, EnhanceParam.HDR)),
         DETAIL(listOf(EnhanceParam.MATTE, EnhanceParam.TEXTURE, EnhanceParam.GRAIN, EnhanceParam.GRAIN_SIZE)),
     }

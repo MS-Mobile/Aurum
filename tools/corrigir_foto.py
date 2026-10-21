@@ -8,6 +8,7 @@ Exemplos de ajuste:
     --calor 0.03        mais quente      (negativo = mais frio)
     --vibrance 0.15     menos saturado
     --brilho 0.05       mais claro
+    --esticar-cor 0     o ajuste de níveis clareia sem saturar
     --grao 3.5          mais grão na pele
     --textura 0         sem realce de textura
     --mate 0.8          menos brilho (oleosidade) na pele
@@ -26,6 +27,8 @@ def parse_args():
     p.add_argument("--wb", type=float, default=0.35, help="força do balanço de branco (0-1)")
     p.add_argument("--calor", type=float, default=0.015, help="aquecimento de cor (-0.05 a 0.05)")
     p.add_argument("--brilho", type=float, default=0.0, help="ajuste de exposição (-0.2 a 0.2)")
+    p.add_argument("--esticar-cor", type=float, default=1.0,
+                   help="quanto o ajuste de níveis estica a cor junto com o brilho (0-1)")
     p.add_argument("--clahe", type=float, default=0.3, help="peso do contraste local (0-1)")
     p.add_argument("--curva", type=float, default=0.13, help="força da curva em S (0-0.4)")
     p.add_argument("--vibrance", type=float, default=0.25, help="vibrance (0-0.5)")
@@ -37,13 +40,14 @@ def parse_args():
     p.add_argument("--mate", type=float, default=0.0, help="tira o brilho (oleosidade) da pele (0-1)")
     p.add_argument("--iphone", action="store_true",
                    help="atalho: --wb 0.25 --calor 0.045 --clahe 0.15 --curva 0.2 --vibrance 0.28 "
-                        "--textura 0.5 --hdr 0.45 --dourado 1 --mate 0.8 --grao 0.8 --grao-tamanho 0.3")
+                        "--textura 0.5 --hdr 0.45 --dourado 1 --mate 0.8 --esticar-cor 0 --grao 0.8 --grao-tamanho 0.3")
     p.add_argument("--qualidade", type=int, default=95, help="qualidade JPEG")
     p.add_argument("--sem-comparacao", action="store_true", help="não gerar imagem antes|depois")
     args = p.parse_args()
     if args.iphone:
         defaults = {"wb": 0.25, "calor": 0.045, "clahe": 0.15, "curva": 0.2, "vibrance": 0.28, "textura": 0.5,
-                    "hdr": 0.45, "dourado": 1.0, "mate": 0.8, "grao": 0.8, "grao_tamanho": 0.3}
+                    "hdr": 0.45, "dourado": 1.0, "mate": 0.8, "esticar_cor": 0.0, "grao": 0.8,
+                    "grao_tamanho": 0.3}
         for key, value in defaults.items():
             if getattr(args, key) == p.get_default(key):
                 setattr(args, key, value)
@@ -61,12 +65,19 @@ def white_balance(img, strength, warmth):
     return np.clip(img * gain, 0, 1)
 
 
-def levels(img, exposure):
+def levels(img, exposure, colour_stretch=1.0):
     y = img.mean(2)
     lo, hi = np.percentile(y, (0.5, 99.8))
     lo *= 0.6
-    img = (img - lo) / max(hi - lo, 1e-6)
-    return np.clip(img * (1 + exposure), 0, 1)
+    if colour_stretch >= 1:
+        img = (img - lo) / max(hi - lo, 1e-6)
+        return np.clip(img * (1 + exposure), 0, 1)
+    # estica o brilho (cinza) inteiro, mas a cor (distância do cinza) só gain ** colour_stretch:
+    # cenas escuras e lavadas não ficam saturadas demais ao serem clareadas
+    gain = (1 + exposure) / max(hi - lo, 1e-6)
+    grey = (y - lo) * gain
+    colour = (img - y[..., None]) * gain ** colour_stretch
+    return np.clip(grey[..., None] + colour, 0, 1)
 
 
 def dynamic_range(img, clahe_weight, curve):
@@ -186,7 +197,7 @@ def main():
 
     img = original.astype(np.float32) / 255.0
     img = white_balance(img, args.wb, args.calor)
-    img = levels(img, args.brilho)
+    img = levels(img, args.brilho, args.esticar_cor)
     img = dynamic_range(img, args.clahe, args.curva)
     img = local_hdr(img, args.hdr)
     img = vibrance(img, args.vibrance)

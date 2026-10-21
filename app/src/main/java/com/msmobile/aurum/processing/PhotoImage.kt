@@ -8,7 +8,8 @@ import org.opencv.core.Mat
  * The image as `corrigir_foto.py` holds it between steps: a BGR float image with values in [0, 1].
  *
  * Every value the script produces is a per-channel function of an 8-bit sample. White balance and levels are point
- * operations on the decoded photo, and every later step returns `u8 / 255`. So the image is stored as 8-bit BGR
+ * operations on the decoded photo, and every later step returns `u8 / 255`. (Levels with `stretchSaturation` below 1
+ * mixes channels; it stores the 8-bit samples the next step's `to_u8` would make, see `LevelsStep`.) So the image is stored as 8-bit BGR
  * [samples] plus one 256-entry value table per channel, instead of a 3-channel float image. This is exact, and
  * avoids 150 MB float buffers for a 12 MP photo.
  *

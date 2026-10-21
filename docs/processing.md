@@ -28,7 +28,7 @@ The image is BGR float in [0, 1] between stages (see `PhotoImage`). Stages run i
 | # | Stage | Step class | Params | Domain |
 |---|---|---|---|---|
 | 1 | White balance | `WhiteBalanceStep` | `whiteBalance`, `warmth` | colour |
-| 2 | Levels | `LevelsStep` | `exposure` | exposure |
+| 2 | Levels | `LevelsStep` | `exposure`, `stretchSaturation` | exposure |
 | 3 | Dynamic range | `DynamicRangeStep` | `claheWeight`, `curve` | contrast |
 | 4 | Local HDR | `LocalHdrStep` | `hdr` | dynamic range |
 | 5 | Vibrance | `VibranceStep` | `vibrance` | colour |
@@ -51,6 +51,7 @@ differ for some params, and are listed for reference.
 | `whiteBalance` | `--wb` | 0–1 | 0.25 | 0.35 |
 | `warmth` | `--calor` | -0.05–0.05 | 0.045 | 0.015 |
 | `exposure` | `--brilho` | -0.2–0.2 | 0.0 | 0.0 |
+| `stretchSaturation` | `--esticar-cor` | 0–1 | 0.0 | 1.0 |
 | `claheWeight` | `--clahe` | 0–1 | 0.15 | 0.3 |
 | `curve` | `--curva` | 0–0.4 | 0.2 | 0.13 |
 | `vibrance` | `--vibrance` | 0–0.5 | 0.28 | 0.25 |
@@ -90,7 +91,7 @@ img = clip(img * gain, 0, 1)
   tungsten light). 0.25 removes part of a cast while keeping the mood.
 - `warmth` > 0 adds red and removes blue; < 0 cools. 0.045 is a clear warm shift.
 
-### 2. Levels — `exposure`
+### 2. Levels — `exposure`, `stretchSaturation`
 
 Stretches the luma histogram so the darkest 0.5% and brightest 0.2% of pixels clip, then applies the exposure gain.
 
@@ -98,11 +99,17 @@ Stretches the luma histogram so the darkest 0.5% and brightest 0.2% of pixels cl
 y = mean of B, G, R per pixel
 lo, hi = percentile(y, 0.5), percentile(y, 99.8)
 lo *= 0.6                          # keeps some shadow detail instead of crushing to black
-img = clip((img - lo) / (hi - lo) * (1 + exposure), 0, 1)
+gain = (1 + exposure) / (hi - lo)
+img = clip((y - lo) * gain + (img - y) * gain^stretchSaturation, 0, 1)   # grey stretched fully, colour by gain^s
 ```
+
+With `stretchSaturation` 1 this is the script's original `(img - lo) / (hi - lo) * (1 + exposure)`, which scales colour
+by the same gain as brightness: a dim, flat capture stretched 1.4x comes out 1.4x more saturated, which looked
+over-saturated under strong lamp light. At 0 the stretch brightens without adding saturation.
 
 - `exposure` is a multiplicative gain: 0.1 brightens by 10%, -0.1 darkens.
 - Constants: percentiles 0.5 / 99.8, black-point factor 0.6.
+- Below 1 each pixel depends on its grey, so `LevelsStep` computes it per pixel instead of as per-channel tables.
 
 ### 3. Dynamic range — `claheWeight`, `curve`
 
@@ -268,7 +275,7 @@ sh tools/run-calibration.sh out/ a.jpg b.jpg -e golden 0.8 -e grain 0.5
 
 `PhotoEnhancerReferenceTest` (instrumented) runs `PhotoEnhancer` with the preset and `grain = 0` on a reference photo and
 compares it with the script's output for `--iphone --grao 0`. It must stay above **40 dB PSNR**; the port currently scores
-66 dB (max difference 10 levels, 0.5% of samples differ).
+66 dB (max difference 9 levels, 0.5% of samples differ).
 
 - Generate the expected images with `python tools/generate_references.py` (needs `opencv-python` 5.0.0.93 and
   `tools/foto_teste.jpg`; writes `app/src/androidTest/assets/reference/`).

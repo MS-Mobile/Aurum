@@ -15,6 +15,7 @@ enum class EnhanceParam(
     WARMTH(-0.05, 0.05, 0.005, { it.warmth }, { p, v -> p.copy(warmth = v) }),
     VIBRANCE(0.0, 0.5, 0.01, { it.vibrance }, { p, v -> p.copy(vibrance = v) }),
     GOLDEN(0.0, 1.0, 0.01, { it.golden }, { p, v -> p.copy(golden = v) }),
+    STRETCH_SATURATION(0.0, 1.0, 0.05, { it.stretchSaturation }, { p, v -> p.copy(stretchSaturation = v) }),
     EXPOSURE(-0.2, 0.2, 0.01, { it.exposure }, { p, v -> p.copy(exposure = v) }),
     CLAHE_WEIGHT(0.0, 1.0, 0.01, { it.claheWeight }, { p, v -> p.copy(claheWeight = v) }),
     CURVE(0.0, 0.4, 0.01, { it.curve }, { p, v -> p.copy(curve = v) }),

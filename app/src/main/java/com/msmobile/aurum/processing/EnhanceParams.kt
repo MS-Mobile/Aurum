@@ -3,7 +3,7 @@ package com.msmobile.aurum.processing
 /**
  * Parameters of `corrigir_foto.py`. The defaults are the validated `--iphone` preset, i.e. the script defaults
  * with `--wb 0.25 --calor 0.045 --clahe 0.15 --curva 0.2 --vibrance 0.28 --textura 0.5 --hdr 0.45 --dourado 1
- * --mate 0.8 --grao 0.8 --grao-tamanho 0.3`: a warm golden look with punchy contrast, gentle detail and less shine on
+ * --mate 0.8 --esticar-cor 0 --grao 0.8 --grao-tamanho 0.3`: a warm golden look with punchy contrast, gentle detail and less shine on
  * skin, and light grain.
  *
  * Values are doubles because the script receives them as Python floats; each step narrows them to float32 at
@@ -16,6 +16,8 @@ data class EnhanceParams(
     val warmth: Double = 0.045,
     /** `--brilho`: exposure adjustment (-0.2 to 0.2). */
     val exposure: Double = 0.0,
+    /** `--esticar-cor`: how much the levels stretch scales colour along with brightness (0-1); 1 is the full stretch. */
+    val stretchSaturation: Double = 0.0,
     /** `--clahe`: weight of the local contrast (0-1). */
     val claheWeight: Double = 0.15,
     /** `--curva`: S-curve strength (0-0.4). */

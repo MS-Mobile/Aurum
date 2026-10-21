@@ -589,6 +589,7 @@ private val EnhanceParam.labelRes: Int
         EnhanceParam.WARMTH -> R.string.tuner_param_warmth
         EnhanceParam.VIBRANCE -> R.string.tuner_param_vibrance
         EnhanceParam.GOLDEN -> R.string.tuner_param_golden
+        EnhanceParam.STRETCH_SATURATION -> R.string.tuner_param_stretch_saturation
         EnhanceParam.EXPOSURE -> R.string.tuner_param_exposure
         EnhanceParam.CLAHE_WEIGHT -> R.string.tuner_param_clahe_weight
         EnhanceParam.CURVE -> R.string.tuner_param_curve

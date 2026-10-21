@@ -39,6 +39,7 @@
     <string name="tuner_param_warmth">Warmth</string>
     <string name="tuner_param_vibrance">Vibrance</string>
     <string name="tuner_param_golden">Golden tone</string>
+    <string name="tuner_param_stretch_saturation">Stretch saturation</string>
     <string name="tuner_param_exposure">Exposure</string>
     <string name="tuner_param_clahe_weight">Local contrast</string>
     <string name="tuner_param_curve">Contrast curve</string>
