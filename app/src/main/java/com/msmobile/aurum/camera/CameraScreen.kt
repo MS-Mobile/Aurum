@@ -340,7 +340,11 @@ private fun ProcessingIndicator(count: Int, colors: CameraColors) {
 private fun LastPhotoThumbnail(uri: Uri?, colors: CameraColors, onClick: (Uri) -> Unit) {
     val resolver = LocalContext.current.contentResolver
     val thumbnail by produceState<ImageBitmap?>(initialValue = null, uri) {
-        if (uri == null) return@produceState
+        // The state outlives a change of uri, so clear it or the deleted photo stays on screen.
+        if (uri == null) {
+            value = null
+            return@produceState
+        }
         value = withContext(Dispatchers.IO) {
             runCatching { resolver.loadThumbnail(uri, android.util.Size(THUMBNAIL_PX, THUMBNAIL_PX), null).asImageBitmap() }
                 .getOrNull()
