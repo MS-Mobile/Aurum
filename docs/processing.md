@@ -225,6 +225,21 @@ front shots are shown mirrored, like the viewfinder, although the saved photo is
   zoom button enlarges the 2048 px preview, which is still not 1:1.
 - The ranges and steps come from `processing/EnhanceParam.kt`.
 
+## Calibrating on the phone
+
+`tools/run-calibration.sh` processes photos on the connected phone exactly as the camera saves them
+(`PhotoProcessor.toJpeg`: `PhotoPipeline`, JPEG encode and EXIF, without the gallery) through the instrumented
+`PhotoCalibrationTest`, and pulls the results:
+
+```
+sh tools/run-calibration.sh out/ a.jpg b.jpg -e golden 0.8 -e grain 0.5
+```
+
+- Params not given keep the preset; `-e scaleHdrBySceneLight false` turns off [Adaptive HDR](#adaptive-hdr), which
+  otherwise uses each photo's EXIF like a real capture.
+- `out/settings.txt` records the params used. The test is skipped when the phone has no photos to process, so it
+  doesn't affect other instrumented runs.
+
 ## Validation
 
 `PhotoEnhancerReferenceTest` (instrumented) runs `PhotoEnhancer` with the preset and `grain = 0` on a reference photo and

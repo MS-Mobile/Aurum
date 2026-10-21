@@ -2,6 +2,7 @@ package com.msmobile.aurum.capture
 
 import android.net.Uri
 import android.os.SystemClock
+import com.msmobile.aurum.processing.EnhanceParams
 import com.msmobile.aurum.processing.ProcessingSettings
 import com.msmobile.aurum.processing.use
 import com.msmobile.aurum.util.DispatcherProvider
@@ -27,17 +28,21 @@ class PhotoProcessor @Inject constructor(
     suspend fun process(photo: CapturedPhoto, settings: ProcessingSettings): Uri =
         withContext(dispatcherProvider.default) {
             val start = SystemClock.elapsedRealtime()
+            val result = toJpeg(photo, settings)
+            val uri = gallery.save(result.jpeg, result.width, result.height)
+            logger.info(TAG, "${result.describe(photo)}, ${SystemClock.elapsedRealtime() - start} ms -> $uri")
+            uri
+        }
+
+    /** The JPEG a photo is saved as: processed, encoded and with the capture's EXIF. Doesn't touch the gallery. */
+    suspend fun toJpeg(photo: CapturedPhoto, settings: ProcessingSettings): ProcessedJpeg =
+        withContext(dispatcherProvider.default) {
             val processed = pipeline.process(photo, settings)
             val width = processed.bgr.cols()
             val height = processed.bgr.rows()
             val encoded = processed.bgr.use { encodeJpeg(it, settings.params.jpegQuality) }
             val jpeg = ExifTransplant.transplant(source = photo.jpeg, target = encoded)
-            val uri = gallery.save(jpeg, width, height)
-            val exif = processed.exif
-            logger.info(TAG, "${width}x$height, EXIF rotation ${exif.rotationDegrees} (CameraX ${photo.rotationDegrees}), " +
-                "EV100 ${exif.ev100?.let { "%.1f".format(it) }}, HDR ${"%.2f".format(processed.params.hdr)}, " +
-                "${SystemClock.elapsedRealtime() - start} ms -> $uri")
-            uri
+            ProcessedJpeg(jpeg = jpeg, width = width, height = height, exif = processed.exif, params = processed.params)
         }
 
     /** `cv2.imwrite(path, result, [cv2.IMWRITE_JPEG_QUALITY, quality])`, in memory. */
@@ -48,4 +53,17 @@ class PhotoProcessor @Inject constructor(
                 out.toArray()
             }
         }
+}
+
+/** A processed photo as saved: the JPEG, its size, the capture's EXIF and the params it was processed with. */
+class ProcessedJpeg(
+    val jpeg: ByteArray,
+    val width: Int,
+    val height: Int,
+    val exif: CaptureExif,
+    val params: EnhanceParams,
+) {
+    fun describe(photo: CapturedPhoto): String =
+        "${width}x$height, EXIF rotation ${exif.rotationDegrees} (CameraX ${photo.rotationDegrees}), " +
+            "EV100 ${exif.ev100?.let { "%.1f".format(it) }}, HDR ${"%.2f".format(params.hdr)}"
 }
