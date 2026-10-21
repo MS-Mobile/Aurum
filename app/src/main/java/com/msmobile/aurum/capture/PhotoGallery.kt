@@ -37,12 +37,10 @@ class PhotoGallery @Inject constructor(
     }
 
     /**
-     * Saves [jpeg] (already carrying the original EXIF) after marking it upright and fixing its dimensions,
-     * since the pixels were rotated before processing.
+     * [jpeg] (already carrying the original EXIF) marked upright and with its real dimensions, since the pixels were
+     * rotated before processing.
      */
-    fun save(jpeg: ByteArray, width: Int, height: Int): Uri {
-        val now = dateTimeProvider.nowLocalDateTime()
-        val name = "AURUM_${now.format(FILE_NAME_FORMAT)}.jpg"
+    fun markUpright(jpeg: ByteArray, width: Int, height: Int): ByteArray {
         val temp = File.createTempFile("aurum", ".jpg", context.cacheDir)
         try {
             temp.writeBytes(jpeg)
@@ -54,6 +52,19 @@ class PhotoGallery @Inject constructor(
                 if (hasAttribute(ExifInterface.TAG_IMAGE_LENGTH)) setAttribute(ExifInterface.TAG_IMAGE_LENGTH, height.toString())
                 saveAttributes()
             }
+            return temp.readBytes()
+        } finally {
+            temp.delete()
+        }
+    }
+
+    /** Saves [jpeg] as is: see [markUpright] for preparing a processed photo. */
+    fun save(jpeg: ByteArray): Uri {
+        val now = dateTimeProvider.nowLocalDateTime()
+        val name = "AURUM_${now.format(FILE_NAME_FORMAT)}.jpg"
+        val temp = File.createTempFile("aurum", ".jpg", context.cacheDir)
+        try {
+            temp.writeBytes(jpeg)
             return insert(temp, name)
         } finally {
             temp.delete()

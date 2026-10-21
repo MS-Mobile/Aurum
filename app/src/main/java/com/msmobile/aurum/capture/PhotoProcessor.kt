@@ -29,19 +29,22 @@ class PhotoProcessor @Inject constructor(
         withContext(dispatcherProvider.default) {
             val start = SystemClock.elapsedRealtime()
             val result = toJpeg(photo, settings)
-            val uri = gallery.save(result.jpeg, result.width, result.height)
+            val uri = gallery.save(result.jpeg)
             logger.info(TAG, "${result.describe(photo)}, ${SystemClock.elapsedRealtime() - start} ms -> $uri")
             uri
         }
 
-    /** The JPEG a photo is saved as: processed, encoded and with the capture's EXIF. Doesn't touch the gallery. */
+    /**
+     * The exact JPEG a photo is saved as: processed, encoded, with the capture's EXIF marked upright. Doesn't touch
+     * the gallery.
+     */
     suspend fun toJpeg(photo: CapturedPhoto, settings: ProcessingSettings): ProcessedJpeg =
         withContext(dispatcherProvider.default) {
             val processed = pipeline.process(photo, settings)
             val width = processed.bgr.cols()
             val height = processed.bgr.rows()
             val encoded = processed.bgr.use { encodeJpeg(it, settings.params.jpegQuality) }
-            val jpeg = ExifTransplant.transplant(source = photo.jpeg, target = encoded)
+            val jpeg = gallery.markUpright(ExifTransplant.transplant(source = photo.jpeg, target = encoded), width, height)
             ProcessedJpeg(jpeg = jpeg, width = width, height = height, exif = processed.exif, params = processed.params)
         }
 

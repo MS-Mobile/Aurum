@@ -29,6 +29,13 @@ done
 # Release-like build, like run-reference-test.sh, without uninstalling afterwards.
 ./gradlew :app:installProfiling :app:installProfilingAndroidTest -Paurum.testBuildType=profiling --console=plain -q
 
+# HyperOS (GreezeManager) freezes the background test process after a few seconds unless the app is exempt from
+# battery optimisation: exempt it for the run, and undo that afterwards unless it already was.
+if ! "$ADB" shell dumpsys deviceidle whitelist | grep -q com.msmobile.aurum; then
+    trap '"$ADB" shell dumpsys deviceidle whitelist -com.msmobile.aurum > /dev/null' EXIT
+fi
+"$ADB" shell dumpsys deviceidle whitelist +com.msmobile.aurum > /dev/null
+
 "$ADB" shell rm -rf "$DEVICE_DIR"
 "$ADB" shell mkdir -p "$DEVICE_DIR/in"
 echo "$PHOTOS" | while IFS= read -r photo; do
