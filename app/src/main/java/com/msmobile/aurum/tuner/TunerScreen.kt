@@ -1,7 +1,6 @@
 package com.msmobile.aurum.tuner
 
 import android.app.Activity
-import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
@@ -57,20 +56,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.ShaderBrush
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -99,8 +91,8 @@ import com.msmobile.aurum.tuner.TunerViewModel.Tab
 import com.msmobile.aurum.tuner.TunerViewModel.UiEvent
 import com.msmobile.aurum.ui.theme.AurumTheme
 import com.msmobile.aurum.ui.theme.PreviewPhone
+import com.msmobile.aurum.ui.theme.paperGrain
 import java.util.Locale
-import kotlin.random.Random
 
 /** Full-screen layer over the camera, which stays bound underneath so the tuner can take preview shots. */
 @Composable
@@ -116,7 +108,7 @@ fun TunerScreen(
     }
     LaunchedEffect(Unit) { viewModel.onEvent(UiEvent.Opened) }
     BackHandler(onBack = close)
-    LightNavigationBarIcons(enabled = !darkTheme)
+    TunerSystemBarIcons(lightNavigationBar = !darkTheme)
 
     TunerScreenContent(
         uiState = uiState,
@@ -136,17 +128,25 @@ fun TunerScreen(
     )
 }
 
-/** The app draws light system bar icons for the camera; the light panel needs dark navigation bar icons. */
+/**
+ * The status bar sits over the photo, so it needs light icons even when the camera's honey theme has dark ones; the
+ * navigation bar sits over the panel, so it needs dark icons only on the light panel.
+ */
 @Composable
-private fun LightNavigationBarIcons(enabled: Boolean) {
+private fun TunerSystemBarIcons(lightNavigationBar: Boolean) {
     if (LocalInspectionMode.current) return
     val view = LocalView.current
-    DisposableEffect(enabled) {
+    DisposableEffect(lightNavigationBar) {
         val window = (view.context as? Activity)?.window ?: return@DisposableEffect onDispose {}
         val controller = WindowCompat.getInsetsController(window, view)
-        val previous = controller.isAppearanceLightNavigationBars
-        controller.isAppearanceLightNavigationBars = enabled
-        onDispose { controller.isAppearanceLightNavigationBars = previous }
+        val previousStatusBar = controller.isAppearanceLightStatusBars
+        val previousNavigationBar = controller.isAppearanceLightNavigationBars
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = lightNavigationBar
+        onDispose {
+            controller.isAppearanceLightStatusBars = previousStatusBar
+            controller.isAppearanceLightNavigationBars = previousNavigationBar
+        }
     }
 }
 
@@ -411,7 +411,7 @@ private fun ParamsPanel(
 ) {
     Column(
         modifier = modifier
-            .panelGrain(colors)
+            .paperGrain(colors.grain, colors.grainAlpha, colors.grainBlendMode)
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -571,25 +571,8 @@ private fun ScaleHdrCheckbox(uiState: TunerViewModel.UiState, colors: TunerColor
     }
 }
 
-/** A fine, warm paper grain over the panel, like the design's. Seeded, so screenshots stay stable. */
-private fun Modifier.panelGrain(colors: TunerColors): Modifier = drawWithCache {
-    val noise = grainTile(colors.grain)
-    val brush = ShaderBrush(ImageShader(noise, TileMode.Repeated, TileMode.Repeated))
-    onDrawBehind { drawRect(brush = brush, alpha = colors.grainAlpha, blendMode = colors.grainBlendMode) }
-}
-
-private fun grainTile(color: Color): ImageBitmap {
-    val random = Random(GRAIN_SEED)
-    val rgb = color.toArgb() and 0x00FFFFFF
-    val pixels = IntArray(GRAIN_TILE_PX * GRAIN_TILE_PX) { (random.nextInt(256) shl 24) or rgb }
-    return Bitmap.createBitmap(pixels, GRAIN_TILE_PX, GRAIN_TILE_PX, Bitmap.Config.ARGB_8888)
-        .asImageBitmap()
-}
-
 private val MonoStyle = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
 private const val ZOOM_SCALE = 2.6f
-private const val GRAIN_TILE_PX = 128
-private const val GRAIN_SEED = 7
 
 @get:StringRes
 private val Tab.labelRes: Int

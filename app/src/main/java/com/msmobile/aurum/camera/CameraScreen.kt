@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -36,6 +37,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,6 +86,7 @@ import com.msmobile.aurum.camera.CameraViewModel.UiEventState
 import com.msmobile.aurum.capture.CameraSession.FlashMode
 import com.msmobile.aurum.ui.theme.AurumTheme
 import com.msmobile.aurum.ui.theme.PreviewPhone
+import com.msmobile.aurum.ui.theme.paperGrain
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -91,7 +94,11 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 @Composable
-fun CameraScreen(onOpenTuner: () -> Unit, viewModel: CameraViewModel = hiltViewModel()) {
+fun CameraScreen(
+    onOpenTuner: () -> Unit,
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    viewModel: CameraViewModel = hiltViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -113,6 +120,7 @@ fun CameraScreen(onOpenTuner: () -> Unit, viewModel: CameraViewModel = hiltViewM
 
     CameraScreenContent(
         uiState = uiState,
+        colors = if (darkTheme) CameraColors.Dark else CameraColors.Light,
         onEvent = viewModel::onEvent,
         onOpenTuner = onOpenTuner,
         onOpenPermissionSettings = {
@@ -160,6 +168,7 @@ fun CameraScreen(onOpenTuner: () -> Unit, viewModel: CameraViewModel = hiltViewM
 @Composable
 private fun CameraScreenContent(
     uiState: CameraViewModel.UiState,
+    colors: CameraColors,
     onEvent: (UiEvent) -> Unit,
     onOpenTuner: () -> Unit,
     onOpenPermissionSettings: () -> Unit,
@@ -180,18 +189,20 @@ private fun CameraScreenContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(colors.background)
+            .paperGrain(colors.grain, colors.grainAlpha, colors.grainBlendMode)
     ) {
         if (uiState.hasCameraPermission) {
             CameraControls(
                 uiState = uiState,
+                colors = colors,
                 onEvent = onEvent,
                 onOpenTuner = onOpenTuner,
                 onOpenPhoto = onOpenPhoto,
                 viewfinder = viewfinder,
             )
         } else {
-            PermissionRequest(onOpenPermissionSettings = onOpenPermissionSettings)
+            PermissionRequest(colors = colors, onOpenPermissionSettings = onOpenPermissionSettings)
         }
         SnackbarHost(
             hostState = snackbarHostState,
@@ -206,6 +217,7 @@ private fun CameraScreenContent(
 @Composable
 private fun BoxScope.CameraControls(
     uiState: CameraViewModel.UiState,
+    colors: CameraColors,
     onEvent: (UiEvent) -> Unit,
     onOpenTuner: () -> Unit,
     onOpenPhoto: (Uri) -> Unit,
@@ -230,26 +242,32 @@ private fun BoxScope.CameraControls(
             if (uiState.hasFlashUnit) {
                 val (icon, label) = uiState.flashMode.iconAndLabel()
                 Box(modifier = Modifier.align(Alignment.CenterStart)) {
-                    ControlButton(icon = icon, label = label) { onEvent(UiEvent.CycleFlash) }
+                    ControlButton(icon = icon, label = label, tint = colors.icon) { onEvent(UiEvent.CycleFlash) }
                 }
             }
             if (uiState.processingCount > 0) {
                 Box(modifier = Modifier.align(Alignment.Center)) {
-                    ProcessingIndicator(count = uiState.processingCount)
+                    ProcessingIndicator(count = uiState.processingCount, colors = colors)
                 }
             }
             Box(modifier = Modifier.align(Alignment.CenterEnd)) {
-                ControlButton(icon = R.drawable.ic_tune, label = R.string.action_tune_processing, onClick = onOpenTuner)
+                ControlButton(
+                    icon = R.drawable.ic_tune,
+                    label = R.string.action_tune_processing,
+                    tint = colors.icon,
+                    onClick = onOpenTuner,
+                )
             }
         }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(3f / 4f)
+                .background(Color.Black)
         ) {
             viewfinder(Modifier.fillMaxSize()) { tap -> focusPoint = tap }
             focusPoint?.let { point ->
-                FocusRing(point)
+                FocusRing(point, color = colors.focusRing)
                 LaunchedEffect(point) {
                     delay(1_000)
                     focusPoint = null
@@ -271,9 +289,9 @@ private fun BoxScope.CameraControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(modifier = Modifier.size(52.dp)) {
-                LastPhotoThumbnail(uri = uiState.lastPhoto, onClick = onOpenPhoto)
+                LastPhotoThumbnail(uri = uiState.lastPhoto, colors = colors, onClick = onOpenPhoto)
             }
-            ShutterButton {
+            ShutterButton(colors = colors) {
                 onEvent(UiEvent.TakePhoto)
                 scope.launch {
                     shutterFlash.snapTo(0.8f)
@@ -282,7 +300,11 @@ private fun BoxScope.CameraControls(
             }
             Box(modifier = Modifier.size(48.dp)) {
                 if (uiState.canSwitchLens) {
-                    ControlButton(icon = R.drawable.ic_switch_camera, label = R.string.action_switch_camera) {
+                    ControlButton(
+                        icon = R.drawable.ic_switch_camera,
+                        label = R.string.action_switch_camera,
+                        tint = colors.icon,
+                    ) {
                         onEvent(UiEvent.SwitchLens)
                     }
                 }
@@ -292,30 +314,30 @@ private fun BoxScope.CameraControls(
 }
 
 @Composable
-private fun ProcessingIndicator(count: Int) {
+private fun ProcessingIndicator(count: Int, colors: CameraColors) {
     val description = stringResource(R.string.processing_photos, count)
     Row(
         modifier = Modifier
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.12f))
+            .background(colors.pillBackground)
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .semantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CircularProgressIndicator(
             modifier = Modifier.size(14.dp),
-            color = Color.White,
+            color = colors.spinner,
             strokeWidth = 2.dp,
         )
         if (count > 1) {
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = count.toString(), color = Color.White, style = MaterialTheme.typography.labelMedium)
+            Text(text = count.toString(), color = colors.pillContent, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
 
 @Composable
-private fun LastPhotoThumbnail(uri: Uri?, onClick: (Uri) -> Unit) {
+private fun LastPhotoThumbnail(uri: Uri?, colors: CameraColors, onClick: (Uri) -> Unit) {
     val resolver = LocalContext.current.contentResolver
     val thumbnail by produceState<ImageBitmap?>(initialValue = null, uri) {
         if (uri == null) return@produceState
@@ -325,12 +347,12 @@ private fun LastPhotoThumbnail(uri: Uri?, onClick: (Uri) -> Unit) {
         }
     }
     val description = stringResource(R.string.action_open_last_photo)
-    // Gallery slot: a subtle ring around the last photo, or a dark grey circle before the first photo.
+    // Gallery slot: a thin ring around the last photo, or an empty circle before the first photo.
     val slot = Modifier
         .size(52.dp)
         .clip(CircleShape)
-        .background(if (uri == null) Color(0xFF2A2A2A) else Color.Transparent)
-        .border(width = 1.dp, color = Color.White.copy(alpha = 0.5f), shape = CircleShape)
+        .background(if (uri == null) colors.thumbnailEmpty else Color.Transparent)
+        .border(width = 1.dp, color = colors.thumbnailRing, shape = CircleShape)
     Box(
         modifier = if (uri == null) {
             slot
@@ -354,40 +376,40 @@ private fun LastPhotoThumbnail(uri: Uri?, onClick: (Uri) -> Unit) {
 private const val THUMBNAIL_PX = 192
 
 @Composable
-private fun FocusRing(point: Offset) {
+private fun FocusRing(point: Offset, color: Color) {
     val sizePx = with(LocalDensity.current) { 64.dp.toPx() }
     Box(
         modifier = Modifier
             .offset { IntOffset((point.x - sizePx / 2).roundToInt(), (point.y - sizePx / 2).roundToInt()) }
             .size(64.dp)
-            .border(width = 1.5.dp, color = Color.White, shape = CircleShape)
+            .border(width = 1.5.dp, color = color, shape = CircleShape)
     )
 }
 
 @Composable
-private fun ShutterButton(onClick: () -> Unit) {
+private fun ShutterButton(colors: CameraColors, onClick: () -> Unit) {
     val description = stringResource(R.string.action_take_photo)
     Box(
         modifier = Modifier
             .size(76.dp)
-            .border(width = 4.dp, color = Color.White, shape = CircleShape)
+            .border(width = 4.dp, color = colors.shutterRing, shape = CircleShape)
             .padding(8.dp)
             .clip(CircleShape)
-            .background(Color.White)
+            .background(colors.shutterFill)
             .semantics { contentDescription = description }
             .clickable(role = Role.Button, onClick = onClick)
     )
 }
 
 @Composable
-private fun ControlButton(@DrawableRes icon: Int, @StringRes label: Int, onClick: () -> Unit) {
+private fun ControlButton(@DrawableRes icon: Int, @StringRes label: Int, tint: Color, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
-        Icon(painter = painterResource(icon), contentDescription = stringResource(label), tint = Color.White)
+        Icon(painter = painterResource(icon), contentDescription = stringResource(label), tint = tint)
     }
 }
 
 @Composable
-private fun PermissionRequest(onOpenPermissionSettings: () -> Unit) {
+private fun PermissionRequest(colors: CameraColors, onOpenPermissionSettings: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -398,12 +420,18 @@ private fun PermissionRequest(onOpenPermissionSettings: () -> Unit) {
     ) {
         Text(
             text = stringResource(R.string.camera_permission_rationale),
-            color = Color.White,
+            color = colors.icon,
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyLarge,
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onOpenPermissionSettings) {
+        Button(
+            onClick = onOpenPermissionSettings,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colors.primaryBackground,
+                contentColor = colors.primaryContent,
+            ),
+        ) {
             Text(text = stringResource(R.string.camera_permission_open_settings))
         }
     }
@@ -420,9 +448,10 @@ private fun FlashMode.iconAndLabel(): Pair<Int, Int> = when (this) {
 internal fun CameraScreenPreview(
     @PreviewParameter(CameraPreviewConfigProvider::class) config: CameraPreviewConfig,
 ) {
-    AurumTheme(darkTheme = true, dynamicColor = false) {
+    AurumTheme(darkTheme = config.darkTheme, dynamicColor = false) {
         CameraScreenContent(
             uiState = config.uiState,
+            colors = if (config.darkTheme) CameraColors.Dark else CameraColors.Light,
             onEvent = {},
             onOpenTuner = {},
             onOpenPermissionSettings = {},
