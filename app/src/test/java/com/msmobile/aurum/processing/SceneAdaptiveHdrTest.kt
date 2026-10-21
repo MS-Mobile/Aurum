@@ -30,7 +30,7 @@ class SceneAdaptiveHdrTest {
         val params = SceneAdaptiveHdr.adapt(EnhanceParams.IPHONE, ev100 = 5.0)
 
         // Assert
-        assertEquals(0.6, params.hdr, 1e-9)
+        assertEquals(EnhanceParams.IPHONE.hdr, params.hdr, 1e-9)
     }
 
     @Test
@@ -39,7 +39,7 @@ class SceneAdaptiveHdrTest {
         val params = SceneAdaptiveHdr.adapt(EnhanceParams.IPHONE, ev100 = 14.0)
 
         // Assert
-        assertEquals(0.6 * SceneAdaptiveHdr.BRIGHT_SCALE, params.hdr, 1e-9)
+        assertEquals(EnhanceParams.IPHONE.hdr * SceneAdaptiveHdr.BRIGHT_SCALE, params.hdr, 1e-9)
     }
 
     @Test
@@ -48,7 +48,7 @@ class SceneAdaptiveHdrTest {
         val params = SceneAdaptiveHdr.adapt(EnhanceParams.IPHONE, ev100 = 9.0)
 
         // Assert
-        assertEquals(0.6 * (1 + SceneAdaptiveHdr.BRIGHT_SCALE) / 2, params.hdr, 1e-9)
+        assertEquals(EnhanceParams.IPHONE.hdr * (1 + SceneAdaptiveHdr.BRIGHT_SCALE) / 2, params.hdr, 1e-9)
     }
 
     @Test

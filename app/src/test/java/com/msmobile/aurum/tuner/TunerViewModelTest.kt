@@ -106,7 +106,7 @@ class TunerViewModelTest {
 
         // Assert
         assertEquals(0.4, requireNotNull(viewModel.uiState.value.hdrScale), 1e-9)
-        verify(requireNotNull(rendererRef.value)).render(any(), eq(EnhanceParams.IPHONE.copy(hdr = 0.6 * 0.4)))
+        verify(requireNotNull(rendererRef.value)).render(any(), eq(EnhanceParams.IPHONE.copy(hdr = EnhanceParams.IPHONE.hdr * 0.4)))
     }
 
     @Test

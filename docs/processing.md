@@ -46,20 +46,24 @@ differ for some params, and are listed for reference.
 
 | Param (`EnhanceParams`) | Script flag | Range | App (iPhone) | Script default |
 |---|---|---|---|---|
-| `whiteBalance` | `--wb` | 0–1 | 0.35 | 0.35 |
-| `warmth` | `--calor` | -0.05–0.05 | 0.02 | 0.015 |
+| `whiteBalance` | `--wb` | 0–1 | 0.25 | 0.35 |
+| `warmth` | `--calor` | -0.05–0.05 | 0.045 | 0.015 |
 | `exposure` | `--brilho` | -0.2–0.2 | 0.0 | 0.0 |
-| `claheWeight` | `--clahe` | 0–1 | 0.3 | 0.3 |
-| `curve` | `--curva` | 0–0.4 | 0.13 | 0.13 |
-| `vibrance` | `--vibrance` | 0–0.5 | 0.25 | 0.25 |
+| `claheWeight` | `--clahe` | 0–1 | 0.35 | 0.3 |
+| `curve` | `--curva` | 0–0.4 | 0.2 | 0.13 |
+| `vibrance` | `--vibrance` | 0–0.5 | 0.28 | 0.25 |
 | `texture` | `--textura` | 0–2 | 1.0 | 1.0 |
-| `grain` | `--grao` | 0–5 | 2.2 | 2.6 |
-| `grainSize` | `--grao-tamanho` | 0.3–1.0 | 0.35 | 0.5 |
-| `hdr` | `--hdr` | 0–1 | 0.6, scaled per photo (see [Adaptive HDR](#adaptive-hdr)) | 0.0 |
-| `golden` | `--dourado` | 0–1 | 0.5 | 0.0 |
+| `grain` | `--grao` | 0–5 | 0.8 | 2.6 |
+| `grainSize` | `--grao-tamanho` | 0.3–1.0 | 0.3 | 0.5 |
+| `hdr` | `--hdr` | 0–1 | 0.85, scaled per photo (see [Adaptive HDR](#adaptive-hdr)) | 0.0 |
+| `golden` | `--dourado` | 0–1 | 1.0 | 0.0 |
 | `jpegQuality` | `--qualidade` | 1–100 | 95 | 95 |
 
 The ranges are the script's help text, not enforced limits.
+
+The preset was picked by eye on the reference photo: a warm golden glow (full golden tone, extra warmth and less
+white balance correction, so the scene keeps its warmth), open shadows (strong HDR), punchy contrast (curve and local
+contrast above the script defaults) and light grain.
 
 ## Stages
 
@@ -78,8 +82,8 @@ img = clip(img * gain, 0, 1)
 ```
 
 - `whiteBalance` 0 leaves the colours alone; 1 is full gray-world, which can neutralise intended colour casts (sunsets,
-  tungsten light). 0.35 removes most of a cast while keeping the mood.
-- `warmth` > 0 adds red and removes blue; < 0 cools. 0.02 is a slight warm shift.
+  tungsten light). 0.25 removes part of a cast while keeping the mood.
+- `warmth` > 0 adds red and removes blue; < 0 cools. 0.045 is a clear warm shift.
 
 ### 2. Levels — `exposure`
 
@@ -142,7 +146,7 @@ boost *= 0.5 if skin hue                   # H <= 25 or H >= 170 (OpenCV 0-180),
 S = clip(S * (1 + boost), 0, 1)
 ```
 
-- `vibrance` 0.25 brings back washed-out colour without making already saturated colour or skin garish.
+- `vibrance` 0.28 brings back washed-out colour without making already saturated colour or skin garish.
 - Constants: skin hue ≤ 25 or ≥ 170, minimum saturation 0.08, skin factor 0.5.
 
 ### 6. Golden tone — `golden`
@@ -175,7 +179,7 @@ L += noise * grain * midtones * (0.35 + 0.65 * mask)
 - `texture` brings back fine detail (pores, hair, fabric): 0.25× off skin, 0.6× on skin at `texture` 1.
 - `grain` is the noise standard deviation in L units (0–255), strongest at mid-grey and fading to 0 at black and white;
   0.35× off skin, 1× on skin. It hides smoothing and banding and gives skin a film look. 0 turns it off.
-- `grainSize` is the noise blur sigma: 0.35 is a fine grain; 1.0 is coarse and blotchy.
+- `grainSize` is the noise blur sigma: 0.3 is the finest grain; 1.0 is coarse and blotchy.
 - Constants: skin YCrCb box Y ≥ 40, Cr 135–175, Cb 85–130; mask blur 6; texture blur 1.2; midtone centre 0.55, width
   0.45; skin weights above.
 - The grain is random and unseeded, both in the script and in the app, so it differs between runs and can't be
@@ -183,7 +187,7 @@ L += noise * grain * midtones * (0.35 + 0.65 * mask)
 
 ## Adaptive HDR
 
-The app adds one thing the script doesn't have: `hdr` is scaled per photo by the scene light, because the full 0.6 looks
+The app adds one thing the script doesn't have: `hdr` is scaled per photo by the scene light, because the full strength looks
 flat in good lighting. `PhotoProcessor` reads the capture's EXIF and calls `SceneAdaptiveHdr`:
 
 ```
@@ -191,10 +195,10 @@ EV100 = log2(fNumber² / exposureSeconds) - log2(ISO / 100)
 scale = 1                            if EV100 <= 7   (dim indoor)
         0.4                          if EV100 >= 11  (bright indoor, overcast, sun)
         linear from 1 to 0.4         in between
-hdr = 0.6 * scale                    # 0.6 down to 0.24
+hdr = 0.85 * scale                   # 0.85 down to 0.34
 ```
 
-When any of the EXIF values is missing, `hdr` stays at 0.6. Only `hdr` changes; every other param is the preset. The
+When any of the EXIF values is missing, `hdr` stays at 0.85. Only `hdr` changes; every other param is the preset. The
 thresholds (`DIM_EV100`, `BRIGHT_EV100`, `BRIGHT_SCALE`) were picked from a handful of phone photos and still need checking
 against more bright-light shots. `SceneAdaptiveHdrTest` covers the formula.
 
@@ -219,7 +223,7 @@ front shots are shown mirrored, like the viewfinder, although the saved photo is
 
 `PhotoEnhancerReferenceTest` (instrumented) runs `PhotoEnhancer` with the preset and `grain = 0` on a reference photo and
 compares it with the script's output for `--iphone --grao 0`. It must stay above **40 dB PSNR**; the port currently scores
-84 dB (max difference 6 levels, 0.007% of samples differ).
+60 dB (max difference 12 levels, 1.4% of samples differ).
 
 - Generate the expected images with `python tools/generate_references.py` (needs `opencv-python` 5.0.0.93 and
   `tools/foto_teste.jpg`; writes `app/src/androidTest/assets/reference/`).

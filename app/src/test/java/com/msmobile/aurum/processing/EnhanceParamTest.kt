@@ -28,7 +28,7 @@ class EnhanceParamTest {
     @Test
     fun set_presetValue_isNotModified() {
         // Arrange & Act
-        val params = EnhanceParam.WHITE_BALANCE.set(EnhanceParams.IPHONE, 0.35)
+        val params = EnhanceParam.WHITE_BALANCE.set(EnhanceParams.IPHONE, EnhanceParams.IPHONE.whiteBalance)
 
         // Assert
         assertFalse(EnhanceParam.WHITE_BALANCE.isModified(params))
