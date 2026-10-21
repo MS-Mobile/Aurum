@@ -33,11 +33,12 @@ The image is BGR float in [0, 1] between stages (see `PhotoImage`). Stages run i
 | 4 | Local HDR | `LocalHdrStep` | `hdr` | dynamic range |
 | 5 | Vibrance | `VibranceStep` | `vibrance` | colour |
 | 6 | Golden tone | `GoldenToneStep` | `golden` | colour |
-| 7 | Texture and grain | `SkinTextureStep` | `texture`, `grain`, `grainSize` | detail / noise |
+| 7 | Matte skin | `MatteStep` | `matte` | skin shine |
+| 8 | Texture and grain | `SkinTextureStep` | `texture`, `grain`, `grainSize` | detail / noise |
 
 Texture and grain must stay last: the grain should sit on top of the final tones, not be processed by later stages.
 
-Stages 3–7 each convert to 8-bit and back (`to_u8` truncates), so every one of them quantises the image to 8 bits.
+Stages 3–8 each convert to 8-bit and back (`to_u8` truncates), so every one of them quantises the image to 8 bits.
 
 ## Parameters
 
@@ -58,6 +59,7 @@ differ for some params, and are listed for reference.
 | `grainSize` | `--grao-tamanho` | 0.3–1.0 | 0.3 | 0.5 |
 | `hdr` | `--hdr` | 0–1 | 0.45, scaled per photo (see [Adaptive HDR](#adaptive-hdr)) | 0.0 |
 | `golden` | `--dourado` | 0–1 | 1.0 | 0.0 |
+| `matte` | `--mate` | 0–1 | 0.8 | 0.0 |
 | `jpegQuality` | `--qualidade` | 1–100 | 95 | 95 |
 
 The ranges are the script's help text, not enforced limits.
@@ -65,7 +67,8 @@ The ranges are the script's help text, not enforced limits.
 The preset was picked by eye: a warm golden glow (full golden tone, extra warmth and less white balance correction, so
 the scene keeps its warmth), punchy contrast (a stronger curve) and light grain. HDR, local contrast and texture were
 then lowered on Aurum's own front camera captures in low, medium and good light (`tools/run-calibration.sh`), since
-at higher values they etch wrinkles and pores and make faces look older.
+at higher values they etch wrinkles and pores and make faces look older. `matte` was added for oily skin under
+overhead light, where the camera already captures near-white shine on the forehead and nose.
 
 ## Stages
 
@@ -165,7 +168,27 @@ a += 2.5 * golden * weight    # a touch of red, so gold rather than lime green
 - The weight ramps up from L 0.25 to 0.75, then fades out over the top 12% so whites stay white.
 - Constants: Lab b +9, a +2.5 at full strength; ramp 0.25–0.75; white fade 0.88–1.
 
-### 7. Texture and grain — `texture`, `grain`, `grainSize`
+### 7. Matte skin — `matte`
+
+Tones down shine on skin: darkens skin highlights and pulls their colour back towards the surrounding skin, so oily
+forehead and nose highlights read as skin rather than white patches. The rest of the photo keeps its brightness, unlike
+lowering `exposure`. Skipped when `matte` is 0.
+
+```
+mask = skin_mask(img)                                  # as in texture and grain
+shine = clip((L/255 - 0.7) / 0.25, 0, 1)                # highlights from L 0.7, full at 0.95
+near = clip(blur(mask) * 1.5, 0, 1)                     # skin nearby, so white spots inside skin count
+k = shine * near * matte
+L -= k * (L/255 - 0.7) * 255 * 0.6                      # compresses the highlight
+a, b += k * 0.7 * (surrounding skin a, b - a, b)        # weighted by skin that isn't shine
+```
+
+- `matte` 0.8 removes most of the white sheen and leaves a soft highlight; 1 is close to matte.
+- Constants: shine ramp 0.7–0.95; L compression 0.6; colour pull 0.7. The `near` mask (sigma 3) and the surrounding
+  colour (sigma 10) are blurred at a quarter of the size, like local HDR's base layer.
+- Detail clipped at capture (a channel at 255) can't come back: matte makes it skin-coloured, not textured.
+
+### 8. Texture and grain — `texture`, `grain`, `grainSize`
 
 Local texture sharpening, then film-like grain. Both are stronger on skin, using a skin mask.
 
@@ -210,7 +233,7 @@ The tune button on the camera opens the processing tuner (`tuner/`). It takes a 
 in memory only (never on disk), and renders it through `PhotoPipeline`, the same full resolution path a saved photo
 takes, with the same decoder, rotation, scene light scaling and steps (`PreviewRenderer`). Only the result is
 downscaled, to a long side of 2048 px, for the screen. Every slider change renders again, newest value only, and takes
-about as long as processing a photo (1–2 s at 12 MP). A render waits while a photo is being processed, since both
+about as long as processing a photo (2–3 s at 12 MP). A render waits while a photo is being processed, since both
 need several hundred MB. **Hold to compare** shows the unprocessed shot. The switch button
 alternates between the back and front camera (for the camera screen too) and shoots again once the camera has rebound;
 front shots are shown mirrored, like the viewfinder, although the saved photo isn't.
@@ -245,7 +268,7 @@ sh tools/run-calibration.sh out/ a.jpg b.jpg -e golden 0.8 -e grain 0.5
 
 `PhotoEnhancerReferenceTest` (instrumented) runs `PhotoEnhancer` with the preset and `grain = 0` on a reference photo and
 compares it with the script's output for `--iphone --grao 0`. It must stay above **40 dB PSNR**; the port currently scores
-64 dB (max difference 9 levels, 0.7% of samples differ).
+66 dB (max difference 10 levels, 0.5% of samples differ).
 
 - Generate the expected images with `python tools/generate_references.py` (needs `opencv-python` 5.0.0.93 and
   `tools/foto_teste.jpg`; writes `app/src/androidTest/assets/reference/`).

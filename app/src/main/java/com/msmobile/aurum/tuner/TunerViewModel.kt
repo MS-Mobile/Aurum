@@ -169,7 +169,7 @@ class TunerViewModel @Inject constructor(
     enum class Tab(val params: List<EnhanceParam>) {
         COLOUR(listOf(EnhanceParam.WHITE_BALANCE, EnhanceParam.WARMTH, EnhanceParam.VIBRANCE, EnhanceParam.GOLDEN)),
         LIGHT(listOf(EnhanceParam.EXPOSURE, EnhanceParam.CLAHE_WEIGHT, EnhanceParam.CURVE, EnhanceParam.HDR)),
-        DETAIL(listOf(EnhanceParam.TEXTURE, EnhanceParam.GRAIN, EnhanceParam.GRAIN_SIZE)),
+        DETAIL(listOf(EnhanceParam.MATTE, EnhanceParam.TEXTURE, EnhanceParam.GRAIN, EnhanceParam.GRAIN_SIZE)),
     }
 
     sealed class UiEvent {

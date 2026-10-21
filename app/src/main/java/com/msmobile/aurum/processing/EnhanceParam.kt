@@ -19,6 +19,7 @@ enum class EnhanceParam(
     CLAHE_WEIGHT(0.0, 1.0, 0.01, { it.claheWeight }, { p, v -> p.copy(claheWeight = v) }),
     CURVE(0.0, 0.4, 0.01, { it.curve }, { p, v -> p.copy(curve = v) }),
     HDR(0.0, 1.0, 0.01, { it.hdr }, { p, v -> p.copy(hdr = v) }),
+    MATTE(0.0, 1.0, 0.01, { it.matte }, { p, v -> p.copy(matte = v) }),
     TEXTURE(0.0, 2.0, 0.05, { it.texture }, { p, v -> p.copy(texture = v) }),
     GRAIN(0.0, 5.0, 0.1, { it.grain }, { p, v -> p.copy(grain = v) }),
     GRAIN_SIZE(0.3, 1.0, 0.05, { it.grainSize }, { p, v -> p.copy(grainSize = v) }),

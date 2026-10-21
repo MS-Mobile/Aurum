@@ -43,6 +43,7 @@
     <string name="tuner_param_clahe_weight">Local contrast</string>
     <string name="tuner_param_curve">Contrast curve</string>
     <string name="tuner_param_hdr">HDR</string>
+    <string name="tuner_param_matte">Matte skin</string>
     <string name="tuner_param_texture">Texture</string>
     <string name="tuner_param_grain">Grain</string>
     <string name="tuner_param_grain_size">Grain size</string>

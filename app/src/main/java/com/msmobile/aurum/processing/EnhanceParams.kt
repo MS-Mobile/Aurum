@@ -3,7 +3,8 @@ package com.msmobile.aurum.processing
 /**
  * Parameters of `corrigir_foto.py`. The defaults are the validated `--iphone` preset, i.e. the script defaults
  * with `--wb 0.25 --calor 0.045 --clahe 0.15 --curva 0.2 --vibrance 0.28 --textura 0.5 --hdr 0.45 --dourado 1
- * --grao 0.8 --grao-tamanho 0.3`: a warm golden look with punchy contrast, gentle detail on skin and light grain.
+ * --mate 0.8 --grao 0.8 --grao-tamanho 0.3`: a warm golden look with punchy contrast, gentle detail and less shine on
+ * skin, and light grain.
  *
  * Values are doubles because the script receives them as Python floats; each step narrows them to float32 at
  * the same point NumPy does.
@@ -31,6 +32,8 @@ data class EnhanceParams(
     val hdr: Double = 0.45,
     /** `--dourado`: golden toning (0-1). */
     val golden: Double = 1.0,
+    /** `--mate`: tones down shine on skin (0-1). */
+    val matte: Double = 0.8,
     /** `--qualidade`: JPEG quality of the saved photo. */
     val jpegQuality: Int = 95,
 ) {

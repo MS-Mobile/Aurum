@@ -10,6 +10,7 @@ Exemplos de ajuste:
     --brilho 0.05       mais claro
     --grao 3.5          mais grão na pele
     --textura 0         sem realce de textura
+    --mate 0.8          menos brilho (oleosidade) na pele
     --iphone            visual iPhone: HDR local, tom dourado e grão fino
 """
 import argparse
@@ -33,15 +34,16 @@ def parse_args():
     p.add_argument("--grao-tamanho", type=float, default=0.5, help="tamanho do grão (0.3 fino a 1.0 grosso)")
     p.add_argument("--hdr", type=float, default=0.0, help="HDR local estilo Smart HDR (0-1)")
     p.add_argument("--dourado", type=float, default=0.0, help="tonalização dourada (0-1)")
+    p.add_argument("--mate", type=float, default=0.0, help="tira o brilho (oleosidade) da pele (0-1)")
     p.add_argument("--iphone", action="store_true",
                    help="atalho: --wb 0.25 --calor 0.045 --clahe 0.15 --curva 0.2 --vibrance 0.28 "
-                        "--textura 0.5 --hdr 0.45 --dourado 1 --grao 0.8 --grao-tamanho 0.3")
+                        "--textura 0.5 --hdr 0.45 --dourado 1 --mate 0.8 --grao 0.8 --grao-tamanho 0.3")
     p.add_argument("--qualidade", type=int, default=95, help="qualidade JPEG")
     p.add_argument("--sem-comparacao", action="store_true", help="não gerar imagem antes|depois")
     args = p.parse_args()
     if args.iphone:
         defaults = {"wb": 0.25, "calor": 0.045, "clahe": 0.15, "curva": 0.2, "vibrance": 0.28, "textura": 0.5,
-                    "hdr": 0.45, "dourado": 1.0, "grao": 0.8, "grao_tamanho": 0.3}
+                    "hdr": 0.45, "dourado": 1.0, "mate": 0.8, "grao": 0.8, "grao_tamanho": 0.3}
         for key, value in defaults.items():
             if getattr(args, key) == p.get_default(key):
                 setattr(args, key, value)
@@ -133,6 +135,32 @@ def skin_mask(img):
     return cv2.GaussianBlur(mask, (0, 0), 6)
 
 
+def matte(img, amount):
+    """Tira o brilho da pele: escurece as altas luzes da pele e puxa a cor delas para a da pele ao redor."""
+    if amount <= 0:
+        return img
+    mask = skin_mask(img)
+    lab = cv2.cvtColor(to_u8(img), cv2.COLOR_BGR2LAB).astype(np.float32)
+    t = lab[..., 0] / 255.0
+    shine = np.clip((t - 0.7) / 0.25, 0, 1)
+    h, w = t.shape
+    small = (w // 4, h // 4)
+    # pele por perto, incluindo os pontos brancos de brilho dentro dela
+    near = cv2.GaussianBlur(cv2.resize(mask, small, interpolation=cv2.INTER_AREA), (0, 0), 3)
+    near = cv2.resize(np.clip(near * 1.5, 0, 1), (w, h), interpolation=cv2.INTER_LINEAR)
+    amount_px = shine * near * amount
+    lab[..., 0] -= amount_px * (t - 0.7) * 255 * 0.6
+    # cor da pele ao redor: média ponderada pela pele sem brilho
+    weight = mask * (1 - shine) + 1e-3
+    weight_blur = cv2.GaussianBlur(cv2.resize(weight, small, interpolation=cv2.INTER_AREA), (0, 0), 10)
+    for c in (1, 2):
+        local = cv2.GaussianBlur(cv2.resize(lab[..., c] * weight, small, interpolation=cv2.INTER_AREA), (0, 0), 10)
+        local = cv2.resize(local / weight_blur, (w, h), interpolation=cv2.INTER_LINEAR)
+        lab[..., c] += amount_px * 0.7 * (local - lab[..., c])
+    lab = np.clip(lab, 0, 255)
+    return cv2.cvtColor(lab.astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32) / 255.0
+
+
 def texture_and_grain(img, texture, grain, grain_size=0.5):
     mask = skin_mask(img)
     lab = cv2.cvtColor(to_u8(img), cv2.COLOR_BGR2LAB).astype(np.float32)
@@ -163,6 +191,7 @@ def main():
     img = local_hdr(img, args.hdr)
     img = vibrance(img, args.vibrance)
     img = golden_tone(img, args.dourado)
+    img = matte(img, args.mate)
     result = texture_and_grain(img, args.textura, args.grao, args.grao_tamanho)  # sempre por último
 
     cv2.imwrite(args.saida, result, [cv2.IMWRITE_JPEG_QUALITY, args.qualidade])

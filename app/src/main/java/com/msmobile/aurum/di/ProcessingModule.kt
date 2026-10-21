@@ -5,6 +5,7 @@ import com.msmobile.aurum.processing.steps.DynamicRangeStep
 import com.msmobile.aurum.processing.steps.GoldenToneStep
 import com.msmobile.aurum.processing.steps.LevelsStep
 import com.msmobile.aurum.processing.steps.LocalHdrStep
+import com.msmobile.aurum.processing.steps.MatteStep
 import com.msmobile.aurum.processing.steps.SkinTextureStep
 import com.msmobile.aurum.processing.steps.VibranceStep
 import com.msmobile.aurum.processing.steps.WhiteBalanceStep
@@ -25,6 +26,8 @@ class ProcessingModule {
         localHdr: LocalHdrStep,
         vibrance: VibranceStep,
         goldenTone: GoldenToneStep,
+        matte: MatteStep,
         skinTexture: SkinTextureStep,
-    ): List<ImageProcessingStep> = listOf(whiteBalance, levels, dynamicRange, localHdr, vibrance, goldenTone, skinTexture)
+    ): List<ImageProcessingStep> =
+        listOf(whiteBalance, levels, dynamicRange, localHdr, vibrance, goldenTone, matte, skinTexture)
 }

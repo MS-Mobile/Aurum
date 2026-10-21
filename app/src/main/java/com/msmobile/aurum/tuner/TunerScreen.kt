@@ -593,6 +593,7 @@ private val EnhanceParam.labelRes: Int
         EnhanceParam.CLAHE_WEIGHT -> R.string.tuner_param_clahe_weight
         EnhanceParam.CURVE -> R.string.tuner_param_curve
         EnhanceParam.HDR -> R.string.tuner_param_hdr
+        EnhanceParam.MATTE -> R.string.tuner_param_matte
         EnhanceParam.TEXTURE -> R.string.tuner_param_texture
         EnhanceParam.GRAIN -> R.string.tuner_param_grain
         EnhanceParam.GRAIN_SIZE -> R.string.tuner_param_grain_size
