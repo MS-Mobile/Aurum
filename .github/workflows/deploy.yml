@@ -1,0 +1,107 @@
+# Play Store Deploy — manual deployment from a release branch
+# Run from the release branch selected in the "Use workflow from" picker;
+# downloads artifacts produced by release-build.yml on that branch
+# (tagging and the GitHub Release happen in release-build.yml)
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Release notes (Portuguese)'
+        required: false
+        default: 'Ajustes e melhorias.'
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to Play Store
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from release branch
+        id: version
+        run: |
+          NAME=$(grep '^versionName=' version.properties | cut -d'=' -f2)
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "Version: $NAME"
+
+      - name: Guard — branch must match version.properties
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          NAME="${{ steps.version.outputs.name }}"
+          if [ "$BRANCH" != "release/${NAME}" ]; then
+            echo "ERROR: Branch '$BRANCH' does not match versionName '$NAME' (expected branch 'release/${NAME}')."
+            echo "A merge likely brought master's version bump into this release branch."
+            exit 1
+          fi
+          echo "Branch $BRANCH matches versionName $NAME"
+
+      - name: Download App Bundle from release branch
+        id: download
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: app-bundle
+          path: artifacts
+          workflow: release-build.yml
+          branch: ${{ github.ref_name }}
+          workflow_conclusion: success
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download build info
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: build-info
+          path: build-info
+          workflow: release-build.yml
+          run_id: ${{ steps.download.outputs.run-id }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read build info
+        id: vcode
+        run: |
+          CODE=$(cat build-info/version-code.txt)
+          SHA=$(cat build-info/commit-sha.txt)
+          echo "code=$CODE" >> $GITHUB_OUTPUT
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "Version code: $CODE (built from commit: $SHA)"
+
+      - name: Guard — built commit must be on the release branch
+        run: |
+          SHA="${{ steps.vcode.outputs.sha }}"
+          if ! git merge-base --is-ancestor "$SHA" HEAD; then
+            echo "ERROR: Built commit $SHA is not on '${{ github.ref_name }}'."
+            exit 1
+          fi
+          echo "Built commit $SHA is on '${{ github.ref_name }}'"
+
+      - name: List artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find artifacts -name "*.aab" -type f
+
+      - name: Create whatsnew directory
+        run: |
+          mkdir -p whatsnew
+          echo "${{ inputs.release_notes }}" > whatsnew/whatsnew-pt-BR
+
+      - name: Deploy to Play Store (Internal Testing)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          packageName: com.msmobile.aurum
+          releaseFiles: artifacts/*.aab
+          track: internal
+          status: completed
+          releaseName: ${{ inputs.release_notes }}
+          whatsNewDirectory: whatsnew
+          inAppUpdatePriority: 5

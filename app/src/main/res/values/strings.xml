@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Aurum</string>
+    <string name="camera_permission_rationale">Aurum needs the camera to take photos.</string>
+    <string name="camera_permission_open_settings">Allow camera access</string>
+    <string name="action_take_photo">Take photo</string>
+    <string name="action_switch_camera">Switch camera</string>
+    <string name="action_open_last_photo">Open last photo</string>
+    <string name="flash_off">Flash off</string>
+    <string name="flash_auto">Flash auto</string>
+    <string name="flash_on">Flash on</string>
+    <string name="processing_photos">Processing %1$d</string>
+    <string name="error_capture">Couldn\'t take the photo</string>
+    <string name="error_processing">Couldn\'t process or save the photo</string>
+</resources>
