@@ -38,6 +38,21 @@ internal class CameraPreviewConfigProvider : PreviewParameterProvider<CameraPrev
             configName = "Permission Missing",
             uiState = CameraViewModel.UiState(hasCameraPermission = false),
         ),
+        CameraPreviewConfig(
+            configName = "Ready Light",
+            uiState = readyState,
+            darkTheme = false,
+        ),
+        CameraPreviewConfig(
+            configName = "Processing Several Light",
+            uiState = readyState.copy(processingCount = 3, flashMode = FlashMode.ON, lastPhoto = previewPhoto),
+            darkTheme = false,
+        ),
+        CameraPreviewConfig(
+            configName = "Permission Missing Light",
+            uiState = CameraViewModel.UiState(hasCameraPermission = false),
+            darkTheme = false,
+        ),
     )
 
     override fun getDisplayName(index: Int): String = values.elementAt(index).configName
@@ -58,4 +73,5 @@ internal class CameraPreviewConfigProvider : PreviewParameterProvider<CameraPrev
 internal data class CameraPreviewConfig(
     val configName: String,
     val uiState: CameraViewModel.UiState,
+    val darkTheme: Boolean = true,
 )
