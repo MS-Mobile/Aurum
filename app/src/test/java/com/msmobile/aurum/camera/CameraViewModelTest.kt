@@ -11,6 +11,8 @@ import com.msmobile.aurum.capture.CameraSession.Lens
 import com.msmobile.aurum.capture.CapturedPhoto
 import com.msmobile.aurum.capture.PhotoGallery
 import com.msmobile.aurum.capture.PhotoProcessor
+import com.msmobile.aurum.processing.ProcessingSettings
+import com.msmobile.aurum.processing.ProcessingSettingsStore
 import com.msmobile.aurum.util.Logger
 import com.msmobile.aurum.util.MockReferenceHolder
 import com.msmobile.aurum.util.StringResource
@@ -35,6 +37,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doSuspendableAnswer
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -158,6 +161,21 @@ class CameraViewModelTest {
     }
 
     @Test
+    fun takePhoto_tunedSettingsSaved_processesWithThem() = runTest(dispatcher) {
+        // Arrange
+        val tuned = ProcessingSettings(scaleHdrBySceneLight = false)
+        val processorRef = MockReferenceHolder<PhotoProcessor>()
+        val viewModel = createViewModel(settings = tuned, processorRef = processorRef)
+
+        // Act
+        viewModel.onEvent(UiEvent.TakePhoto)
+        advanceUntilIdle()
+
+        // Assert
+        verify(requireNotNull(processorRef.value)).process(any(), eq(tuned))
+    }
+
+    @Test
     fun refreshLastPhoto_galleryHasPhoto_showsItAsLastPhoto() = runTest(dispatcher) {
         // Arrange
         val latest = mock<Uri>()
@@ -251,12 +269,16 @@ class CameraViewModelTest {
         captureError: Throwable? = null,
         processResult: CompletableDeferred<Uri> = CompletableDeferred(mock<Uri>()),
         latestPhoto: Uri? = null,
+        settings: ProcessingSettings = ProcessingSettings(),
         sessionRef: MockReferenceHolder<CameraSession>? = null,
         processorRef: MockReferenceHolder<PhotoProcessor>? = null,
     ): CameraViewModel {
         val photo = CapturedPhoto(jpeg = byteArrayOf(1, 2, 3), rotationDegrees = 90)
+        val lens = MutableStateFlow(Lens.BACK)
         val session = mock<CameraSession> {
             on { surfaceRequest } doReturn MutableStateFlow(null)
+            on { this.lens } doReturn lens
+            on { selectLens(any()) } doAnswer { lens.value = it.getArgument(0) }
             on { availableLenses() } doReturn availableLenses
             on { bind(any(), any()) } doReturn CameraSession.CameraCapabilities(hasFlashUnit = hasFlashUnit)
             if (captureError != null) {
@@ -271,8 +293,11 @@ class CameraViewModelTest {
         val gallery = mock<PhotoGallery> {
             on { latestPhoto() } doReturn latestPhoto
         }
+        val settingsStore = mock<ProcessingSettingsStore> {
+            on { this.settings } doReturn MutableStateFlow(settings)
+        }
         sessionRef?.value = session
         processorRef?.value = processor
-        return CameraViewModel(session, processor, gallery, mock<Logger>())
+        return CameraViewModel(session, processor, gallery, settingsStore, mock<Logger>())
     }
 }

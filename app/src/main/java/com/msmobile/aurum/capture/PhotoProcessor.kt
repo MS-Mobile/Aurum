@@ -2,9 +2,8 @@ package com.msmobile.aurum.capture
 
 import android.net.Uri
 import android.os.SystemClock
-import androidx.exifinterface.media.ExifInterface
-import com.msmobile.aurum.processing.EnhanceParams
 import com.msmobile.aurum.processing.PhotoEnhancer
+import com.msmobile.aurum.processing.ProcessingSettings
 import com.msmobile.aurum.processing.SceneAdaptiveHdr
 import com.msmobile.aurum.processing.use
 import com.msmobile.aurum.util.DispatcherProvider
@@ -17,7 +16,6 @@ import org.opencv.core.Mat
 import org.opencv.core.MatOfByte
 import org.opencv.core.MatOfInt
 import org.opencv.imgcodecs.Imgcodecs
-import java.io.ByteArrayInputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,22 +35,15 @@ class PhotoProcessor @Inject constructor(
 ) {
     private val mutex = Mutex()
 
-    suspend fun process(photo: CapturedPhoto, params: EnhanceParams = EnhanceParams.IPHONE): Uri =
+    suspend fun process(photo: CapturedPhoto, settings: ProcessingSettings): Uri =
         withContext(dispatcherProvider.default) {
             mutex.withLock {
                 val start = SystemClock.elapsedRealtime()
-                val exif = ExifInterface(ByteArrayInputStream(photo.jpeg))
-                val ev100 = SceneAdaptiveHdr.ev100(
-                    fNumber = exif.getAttributeDouble(ExifInterface.TAG_F_NUMBER, Double.NaN).takeUnless { it.isNaN() },
-                    exposureSeconds = exif.getAttributeDouble(ExifInterface.TAG_EXPOSURE_TIME, Double.NaN).takeUnless { it.isNaN() },
-                    iso = exif.getAttributeInt(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, 0).takeIf { it > 0 }?.toDouble(),
-                )
-                val sceneParams = SceneAdaptiveHdr.adapt(params, ev100)
-                // EXIF describes these bytes; fall back to CameraX when the HAL left it out. Mirroring flags are
-                // ignored on purpose so selfies are saved as others see the scene, not mirrored.
-                val rotation = if (exif.hasAttribute(ExifInterface.TAG_ORIENTATION) &&
-                    exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 0) != ExifInterface.ORIENTATION_UNDEFINED
-                ) exif.rotationDegrees else photo.rotationDegrees
+                val params = settings.params
+                val exif = CaptureExif.read(photo)
+                val ev100 = exif.ev100
+                val sceneParams = if (settings.scaleHdrBySceneLight) SceneAdaptiveHdr.adapt(params, ev100) else params
+                val rotation = exif.rotationDegrees
 
                 val upright = decodeUpright(photo.jpeg, rotation)
                 val width = upright.cols()

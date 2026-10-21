@@ -40,7 +40,8 @@ Stages 3–7 each convert to 8-bit and back (`to_u8` truncates), so every one of
 
 ## Parameters
 
-App values are the `--iphone` preset (`EnhanceParams.IPHONE`), which is what every photo uses. The script's own defaults
+App values default to the `--iphone` preset (`EnhanceParams.IPHONE`). They can be changed on the phone in the
+processing tuner (see [Tuning on the phone](#tuning-on-the-phone)). The script's own defaults
 differ for some params, and are listed for reference.
 
 | Param (`EnhanceParams`) | Script flag | Range | App (iPhone) | Script default |
@@ -196,6 +197,23 @@ hdr = 0.6 * scale                    # 0.6 down to 0.24
 When any of the EXIF values is missing, `hdr` stays at 0.6. Only `hdr` changes; every other param is the preset. The
 thresholds (`DIM_EV100`, `BRIGHT_EV100`, `BRIGHT_SCALE`) were picked from a handful of phone photos and still need checking
 against more bright-light shots. `SceneAdaptiveHdrTest` covers the formula.
+
+## Tuning on the phone
+
+The tune button on the camera opens the processing tuner (`tuner/`). It takes a preview shot with the bound camera, keeps it
+in memory only (never on disk), and renders it with the real pipeline at a long side of about 1600–3200 px
+(`PreviewRenderer`). Every slider change renders again, newest value only. **Hold to compare** shows the unprocessed shot. The switch button
+alternates between the back and front camera (for the camera screen too) and shoots again once the camera has rebound;
+front shots are shown mirrored, like the viewfinder, although the saved photo isn't.
+
+- **Done** saves the params and the *Scale by scene light* flag in `ProcessingSettingsStore` (SharedPreferences), and
+  every following photo uses them. The ✕ button and Back discard the changes.
+- *Reset to default preset* goes back to `EnhanceParams.IPHONE`. Values that differ from it are highlighted, and each tab
+  shows how many of its params changed.
+- Turning off *Scale by scene light* skips [Adaptive HDR](#adaptive-hdr), so `hdr` is used as set.
+- The preview is downscaled, so `grain` and `grainSize` (in pixels) look coarser than in the full resolution photo, and
+  *1:1* zooms the preview rather than showing true pixels.
+- The ranges and steps come from `processing/EnhanceParam.kt`.
 
 ## Validation
 
