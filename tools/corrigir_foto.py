@@ -34,14 +34,14 @@ def parse_args():
     p.add_argument("--hdr", type=float, default=0.0, help="HDR local estilo Smart HDR (0-1)")
     p.add_argument("--dourado", type=float, default=0.0, help="tonalização dourada (0-1)")
     p.add_argument("--iphone", action="store_true",
-                   help="atalho: --wb 0.25 --calor 0.045 --clahe 0.35 --curva 0.2 --vibrance 0.28 "
-                        "--hdr 0.85 --dourado 1 --grao 0.8 --grao-tamanho 0.3")
+                   help="atalho: --wb 0.25 --calor 0.045 --clahe 0.15 --curva 0.2 --vibrance 0.28 "
+                        "--textura 0.5 --hdr 0.45 --dourado 1 --grao 0.8 --grao-tamanho 0.3")
     p.add_argument("--qualidade", type=int, default=95, help="qualidade JPEG")
     p.add_argument("--sem-comparacao", action="store_true", help="não gerar imagem antes|depois")
     args = p.parse_args()
     if args.iphone:
-        defaults = {"wb": 0.25, "calor": 0.045, "clahe": 0.35, "curva": 0.2, "vibrance": 0.28,
-                    "hdr": 0.85, "dourado": 1.0, "grao": 0.8, "grao_tamanho": 0.3}
+        defaults = {"wb": 0.25, "calor": 0.045, "clahe": 0.15, "curva": 0.2, "vibrance": 0.28, "textura": 0.5,
+                    "hdr": 0.45, "dourado": 1.0, "grao": 0.8, "grao_tamanho": 0.3}
         for key, value in defaults.items():
             if getattr(args, key) == p.get_default(key):
                 setattr(args, key, value)

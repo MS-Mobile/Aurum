@@ -50,21 +50,22 @@ differ for some params, and are listed for reference.
 | `whiteBalance` | `--wb` | 0–1 | 0.25 | 0.35 |
 | `warmth` | `--calor` | -0.05–0.05 | 0.045 | 0.015 |
 | `exposure` | `--brilho` | -0.2–0.2 | 0.0 | 0.0 |
-| `claheWeight` | `--clahe` | 0–1 | 0.35 | 0.3 |
+| `claheWeight` | `--clahe` | 0–1 | 0.15 | 0.3 |
 | `curve` | `--curva` | 0–0.4 | 0.2 | 0.13 |
 | `vibrance` | `--vibrance` | 0–0.5 | 0.28 | 0.25 |
-| `texture` | `--textura` | 0–2 | 1.0 | 1.0 |
+| `texture` | `--textura` | 0–2 | 0.5 | 1.0 |
 | `grain` | `--grao` | 0–5 | 0.8 | 2.6 |
 | `grainSize` | `--grao-tamanho` | 0.3–1.0 | 0.3 | 0.5 |
-| `hdr` | `--hdr` | 0–1 | 0.85, scaled per photo (see [Adaptive HDR](#adaptive-hdr)) | 0.0 |
+| `hdr` | `--hdr` | 0–1 | 0.45, scaled per photo (see [Adaptive HDR](#adaptive-hdr)) | 0.0 |
 | `golden` | `--dourado` | 0–1 | 1.0 | 0.0 |
 | `jpegQuality` | `--qualidade` | 1–100 | 95 | 95 |
 
 The ranges are the script's help text, not enforced limits.
 
-The preset was picked by eye on the reference photo: a warm golden glow (full golden tone, extra warmth and less
-white balance correction, so the scene keeps its warmth), open shadows (strong HDR), punchy contrast (curve and local
-contrast above the script defaults) and light grain.
+The preset was picked by eye: a warm golden glow (full golden tone, extra warmth and less white balance correction, so
+the scene keeps its warmth), punchy contrast (a stronger curve) and light grain. HDR, local contrast and texture were
+then lowered on Aurum's own front camera captures in low, medium and good light (`tools/run-calibration.sh`), since
+at higher values they etch wrinkles and pores and make faces look older.
 
 ## Stages
 
@@ -196,10 +197,10 @@ EV100 = log2(fNumber² / exposureSeconds) - log2(ISO / 100)
 scale = 1                            if EV100 <= 7   (dim indoor)
         0.4                          if EV100 >= 11  (bright indoor, overcast, sun)
         linear from 1 to 0.4         in between
-hdr = 0.85 * scale                   # 0.85 down to 0.34
+hdr = 0.45 * scale                   # 0.45 down to 0.18
 ```
 
-When any of the EXIF values is missing, `hdr` stays at 0.85. Only `hdr` changes; every other param is the preset. The
+When any of the EXIF values is missing, `hdr` stays at 0.45. Only `hdr` changes; every other param is the preset. The
 thresholds (`DIM_EV100`, `BRIGHT_EV100`, `BRIGHT_SCALE`) were picked from a handful of phone photos and still need checking
 against more bright-light shots. `SceneAdaptiveHdrTest` covers the formula.
 
@@ -244,7 +245,7 @@ sh tools/run-calibration.sh out/ a.jpg b.jpg -e golden 0.8 -e grain 0.5
 
 `PhotoEnhancerReferenceTest` (instrumented) runs `PhotoEnhancer` with the preset and `grain = 0` on a reference photo and
 compares it with the script's output for `--iphone --grao 0`. It must stay above **40 dB PSNR**; the port currently scores
-60 dB (max difference 12 levels, 1.4% of samples differ).
+64 dB (max difference 9 levels, 0.7% of samples differ).
 
 - Generate the expected images with `python tools/generate_references.py` (needs `opencv-python` 5.0.0.93 and
   `tools/foto_teste.jpg`; writes `app/src/androidTest/assets/reference/`).
