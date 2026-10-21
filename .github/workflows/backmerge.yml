@@ -1,0 +1,114 @@
+# Backmerge — keeps master up to date with release branches
+# On every push to release/**, opens (or refreshes) a PR from an
+# intermediate backmerge/* branch into master. Conflict resolution
+# happens on the backmerge branch, never on the release branch.
+
+name: Backmerge
+
+on:
+  push:
+    branches:
+      - 'release/**'
+
+concurrency:
+  group: backmerge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backmerge:
+    name: Open Backmerge PR to Master
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+
+      - name: Compute branch names
+        id: names
+        run: |
+          RELEASE_BRANCH="${{ github.ref_name }}"
+          BACKMERGE_BRANCH="backmerge/${RELEASE_BRANCH#release/}"
+          echo "release_branch=$RELEASE_BRANCH" >> $GITHUB_OUTPUT
+          echo "backmerge_branch=$BACKMERGE_BRANCH" >> $GITHUB_OUTPUT
+          echo "Release: $RELEASE_BRANCH  →  Backmerge: $BACKMERGE_BRANCH"
+
+      - name: Guard — skip if master already has everything
+        id: guard
+        run: |
+          git fetch origin master
+          AHEAD=$(git rev-list --count origin/master..HEAD)
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "needed=false" >> $GITHUB_OUTPUT
+            echo "Master already contains every commit from ${{ steps.names.outputs.release_branch }} — nothing to backmerge"
+          else
+            echo "needed=true" >> $GITHUB_OUTPUT
+            echo "$AHEAD commit(s) to backmerge"
+          fi
+
+      - name: Create backmerge branch and merge master
+        if: steps.guard.outputs.needed == 'true'
+        id: merge
+        run: |
+          BACKMERGE_BRANCH="${{ steps.names.outputs.backmerge_branch }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BACKMERGE_BRANCH"
+          if git merge origin/master --no-edit; then
+            echo "conflicts=false" >> $GITHUB_OUTPUT
+            # version.properties holds master's next-dev version. A backmerge must
+            # never drag it down to the release version — always keep master's. Git
+            # otherwise silently takes the release value, since master is unchanged
+            # from the merge-base and so no conflict is raised. Fold the fix INTO the
+            # merge commit (--amend) rather than a standalone commit: release notes are
+            # built with `git log --no-merges`, which would surface a standalone commit
+            # on every future release but excludes the merge commit itself.
+            git checkout origin/master -- version.properties
+            git add version.properties
+            if ! git diff --cached --quiet; then
+              git commit --amend --no-edit
+            fi
+            echo "Merged master cleanly — PR will be immediately mergeable"
+          else
+            FILES=$(git diff --name-only --diff-filter=U)
+            git merge --abort
+            echo "conflicts=true" >> $GITHUB_OUTPUT
+            echo "files<<EOF" >> $GITHUB_OUTPUT
+            echo "$FILES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            # Don't add a standalone version.properties commit here — it would be a
+            # non-merge commit and leak into release notes. The resolver keeps master's
+            # version.properties inside their merge commit (see the conflict PR body).
+            echo "Merge conflicts with master — pushing unmerged head; resolve on $BACKMERGE_BRANCH"
+          fi
+          git push -f origin "$BACKMERGE_BRANCH"
+
+      - name: Open or refresh PR to master
+        if: steps.guard.outputs.needed == 'true'
+        run: |
+          RELEASE_BRANCH="${{ steps.names.outputs.release_branch }}"
+          BACKMERGE_BRANCH="${{ steps.names.outputs.backmerge_branch }}"
+          HAS_CONFLICTS="${{ steps.merge.outputs.conflicts }}"
+          PR_NUMBER=$(gh pr list --head "$BACKMERGE_BRANCH" --base master --state open --json number --jq '.[0].number // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            echo "Backmerge PR already open (#$PR_NUMBER) — the branch push refreshed it"
+            if [ "$HAS_CONFLICTS" != "true" ]; then
+              gh pr merge "$PR_NUMBER" --auto --merge || echo "Auto-merge already enabled"
+            fi
+            exit 0
+          fi
+          if [ "$HAS_CONFLICTS" = "true" ]; then
+            TITLE="⚠️ Backmerge ${RELEASE_BRANCH} into master (conflicts)"
+            BODY=$(printf 'Automated backmerge of `%s` into master.\n\n**This branch conflicts with master.** Resolve on `%s` (never on the release branch):\n\n```\ngit fetch origin\ngit checkout %s\ngit merge origin/master                          # resolve conflicts\ngit checkout origin/master -- version.properties # keep master'"'"'s next-dev version\ngit commit                                       # finalize the merge commit\ngit push origin %s\n```\n\nKeep master'"'"'s `version.properties` **inside the merge commit** (the `git checkout` step above) — a separate commit for it would leak into future release notes.\n\nConflicting files:\n```\n%s\n```\n\n> Merge with a **merge commit** (not squash) to preserve ancestry.' "$RELEASE_BRANCH" "$BACKMERGE_BRANCH" "$BACKMERGE_BRANCH" "$BACKMERGE_BRANCH" "$CONFLICT_FILES")
+            gh pr create --title "$TITLE" --body "$BODY" --base master --head "$BACKMERGE_BRANCH"
+          else
+            TITLE="Backmerge ${RELEASE_BRANCH} into master"
+            BODY=$(printf 'Automated backmerge of `%s` into master. Master was merged into this branch cleanly — no conflicts.\n\n> Merge with a **merge commit** (not squash) to preserve ancestry.' "$RELEASE_BRANCH")
+            PR_URL=$(gh pr create --title "$TITLE" --body "$BODY" --base master --head "$BACKMERGE_BRANCH")
+            gh pr merge "$PR_URL" --auto --merge
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          CONFLICT_FILES: ${{ steps.merge.outputs.files }}

@@ -1,0 +1,61 @@
+name: Tech Debt
+description: Track a code smell, anti-pattern, or other technical debt in Aurum
+title: "[Tech Debt]: "
+labels: ["tech-debt"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to track technical debt: code smells, anti-patterns, missing tooling, or risky shortcuts.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is the debt? Describe the current state of the code.
+      placeholder: |
+        Example: PhotoProcessor keeps queued photos only in memory, so they are lost if the process dies.
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Location
+      description: File and line references where the debt lives.
+      placeholder: |
+        Example: app/src/main/java/com/msmobile/aurum/capture/PhotoProcessor.kt:40-70
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Why does this matter? Describe the concrete consequence (bug risk, data loss, untestability, security), not a style preference.
+      placeholder: |
+        Example: Photos taken right before the app is swiped away are never saved.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested Fix
+      description: Direction for the fix. The full design happens when the issue is picked up.
+      placeholder: |
+        Example: Persist captured JPEGs to disk and process them from a WorkManager job.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort
+      description: "S = under an hour, M = a focused session, L = multi-session refactor."
+      options:
+        - S
+        - M
+        - L
+    validations:
+      required: true

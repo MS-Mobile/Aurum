@@ -1,0 +1,65 @@
+name: Regenerate Screenshots
+
+# Manually-dispatchable job that regenerates Compose screenshot reference
+# images for a given branch and commits them back. Useful when the
+# validateDebugScreenshotTest check fails because UI changes need new baselines.
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch to regenerate screenshot references on'
+        required: true
+        type: string
+
+concurrency:
+  group: regenerate-screenshots-${{ github.event.inputs.target_branch }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    name: Regenerate Screenshots
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_branch }}
+          # PAT so the commit-back push re-triggers the PR Build check
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+
+      - name: Set up JetBrains JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'jetbrains'
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+            gradle-
+
+      - name: Regenerate screenshot references
+        run: ./gradlew updateDebugScreenshotTest
+
+      - name: Commit and push updated references
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/src/screenshotTestDebug/reference
+          if git diff --cached --quiet; then
+            echo "No screenshot reference changes to commit."
+            exit 0
+          fi
+          git commit -m "Update screenshot references via regenerate-screenshots workflow"
+          git push origin HEAD:${{ github.event.inputs.target_branch }}

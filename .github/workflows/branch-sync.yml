@@ -1,0 +1,91 @@
+# Branch Synchronization Workflow
+# Automatically rebases feature branches when master is updated
+# Equivalent to branch-sync.yml from Azure DevOps
+#
+# To trigger build workflows after sync, create a PAT:
+# 1. https://github.com/settings/tokens?type=beta → Generate new token
+# 2. Grant: Repository → Contents & Pull requests (Read/Write)
+# 3. Add to repository secrets as WORKFLOW_TOKEN
+# Without PAT, branches sync but builds won't trigger (GITHUB_TOKEN limitation)
+# See .github/GITHUB_APP_SETUP.md for advanced GitHub App setup
+
+name: Branch Sync
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: branch-sync
+  cancel-in-progress: true
+
+jobs:
+  sync-branches:
+    name: Sync Feature Branches with Master
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use PAT if available, otherwise GITHUB_TOKEN (won't trigger builds)
+          token: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Sync Feature Branches
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            
+            // Get all open PRs targeting master
+            const { data: pullRequests } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              base: 'master'
+            });
+            
+            console.log(`Found ${pullRequests.length} open PRs targeting master`);
+            
+            if (pullRequests.length === 0) {
+              console.log('No active PRs found targeting master. Nothing to sync.');
+              return;
+            }
+            
+            for (const pr of pullRequests) {
+              const sourceBranch = pr.head.ref;
+              const prNumber = pr.number;
+              const prTitle = pr.title;
+              
+              console.log(`Processing PR #${prNumber} (${prTitle}) - Branch: ${sourceBranch}`);
+              
+              try {
+                // Try to update the branch using GitHub's API
+                await github.rest.pulls.updateBranch({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  expected_head_sha: pr.head.sha
+                });
+                
+                console.log(`Successfully updated branch ${sourceBranch}`);
+                
+              } catch (error) {
+                if (error.status === 422) {
+                  console.log(`Branch ${sourceBranch} has conflicts or is already up to date`);
+                } else {
+                  console.log(`Error updating branch ${sourceBranch}: ${error.message}`);
+                }
+              }
+            }
