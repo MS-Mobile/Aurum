@@ -1,3 +1,4 @@
+import com.project.starter.easylauncher.filter.ColorRibbonFilter
 import java.util.Properties
 
 plugins {
@@ -6,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.compose.screenshot)
+    alias(libs.plugins.easylauncher)
 }
 
 android {
@@ -78,6 +80,22 @@ android {
         compose = true
     }
     experimentalProperties["android.experimental.enableScreenshotTest"] = true
+}
+
+easylauncher {
+    buildTypes {
+        create("debug") {
+            filters(
+                customRibbon(
+                    gravity = ColorRibbonFilter.Gravity.BOTTOM,
+                    label = "DEV",
+                ),
+            )
+        }
+        create("release") {
+            enable(false)
+        }
+    }
 }
 
 dependencies {
