@@ -27,9 +27,13 @@ object SceneAdaptiveHdr {
     /** [params] with the HDR strength for a scene at [ev100]; unchanged when the light is unknown. */
     fun adapt(params: EnhanceParams, ev100: Double?): EnhanceParams {
         if (ev100 == null) return params
+        return params.copy(hdr = params.hdr * scale(ev100))
+    }
+
+    /** The factor `hdr` is multiplied by in a scene at [ev100]: 1 when dim, down to [BRIGHT_SCALE] when bright. */
+    fun scale(ev100: Double): Double {
         val brightness = ((ev100 - DIM_EV100) / (BRIGHT_EV100 - DIM_EV100)).coerceIn(0.0, 1.0)
-        val scale = 1 - (1 - BRIGHT_SCALE) * brightness
-        return params.copy(hdr = params.hdr * scale)
+        return 1 - (1 - BRIGHT_SCALE) * brightness
     }
 
     private fun log2(x: Double) = ln(x) / ln(2.0)

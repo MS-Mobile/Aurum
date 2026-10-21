@@ -6,7 +6,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import com.msmobile.aurum.camera.CameraScreen
+import com.msmobile.aurum.tuner.TunerScreen
 import com.msmobile.aurum.ui.theme.AurumTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -21,7 +27,14 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContent {
             AurumTheme(darkTheme = true) {
-                CameraScreen()
+                var isTunerOpen by rememberSaveable { mutableStateOf(false) }
+                // The tuner covers the camera instead of replacing it, so the camera stays bound for preview shots.
+                Box {
+                    CameraScreen(onOpenTuner = { isTunerOpen = true })
+                    if (isTunerOpen) {
+                        TunerScreen(onClose = { isTunerOpen = false })
+                    }
+                }
             }
         }
     }

@@ -25,15 +25,30 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.Executors
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/** CameraX wrapper: preview, full resolution JPEG capture, flash and tap to focus. */
+/**
+ * CameraX wrapper: preview, full resolution JPEG capture, flash and tap to focus. A singleton, so the processing
+ * tuner can take its preview shot with the camera the camera screen bound.
+ */
+@Singleton
 class CameraSession @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
     private val _surfaceRequest = MutableStateFlow<SurfaceRequest?>(null)
     val surfaceRequest: StateFlow<SurfaceRequest?> = _surfaceRequest
+
+    private val _lens = MutableStateFlow(Lens.BACK)
+
+    /** The lens to use. The camera screen binds it; the processing tuner can change it too. */
+    val lens: StateFlow<Lens> = _lens
+
+    private val _boundLens = MutableStateFlow<Lens?>(null)
+
+    /** The lens currently bound, or null while (re)binding or unbound. */
+    val boundLens: StateFlow<Lens?> = _boundLens
 
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private var meteringPointFactory: SurfaceOrientedMeteringPointFactory? = null
@@ -89,9 +104,11 @@ class CameraSession @Inject constructor(
     /** Binds preview and capture to [lifecycleOwner] using [lens], replacing any previous binding. */
     suspend fun bind(lifecycleOwner: LifecycleOwner, lens: Lens): CameraCapabilities {
         val provider = provider()
+        _boundLens.value = null
         provider.unbindAll()
         val bound = provider.bindToLifecycle(lifecycleOwner, lens.selector, preview, imageCapture)
         camera = bound
+        _boundLens.value = lens
         orientationListener.enable()
         return CameraCapabilities(hasFlashUnit = bound.cameraInfo.hasFlashUnit())
     }
@@ -100,7 +117,12 @@ class CameraSession @Inject constructor(
         orientationListener.disable()
         provider?.unbindAll()
         camera = null
+        _boundLens.value = null
         _surfaceRequest.value = null
+    }
+
+    fun selectLens(lens: Lens) {
+        _lens.value = lens
     }
 
     fun setFlashMode(flashMode: FlashMode) {
@@ -140,6 +162,9 @@ class CameraSession @Inject constructor(
     enum class Lens(val selector: CameraSelector) {
         BACK(CameraSelector.DEFAULT_BACK_CAMERA),
         FRONT(CameraSelector.DEFAULT_FRONT_CAMERA),
+        ;
+
+        fun other(): Lens = if (this == BACK) FRONT else BACK
     }
 
     enum class FlashMode(val cameraXMode: Int) {

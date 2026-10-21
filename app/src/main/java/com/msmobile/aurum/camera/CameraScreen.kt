@@ -91,7 +91,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 @Composable
-fun CameraScreen(viewModel: CameraViewModel = hiltViewModel()) {
+fun CameraScreen(onOpenTuner: () -> Unit, viewModel: CameraViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -114,6 +114,7 @@ fun CameraScreen(viewModel: CameraViewModel = hiltViewModel()) {
     CameraScreenContent(
         uiState = uiState,
         onEvent = viewModel::onEvent,
+        onOpenTuner = onOpenTuner,
         onOpenPermissionSettings = {
             context.startActivity(
                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
@@ -160,6 +161,7 @@ fun CameraScreen(viewModel: CameraViewModel = hiltViewModel()) {
 private fun CameraScreenContent(
     uiState: CameraViewModel.UiState,
     onEvent: (UiEvent) -> Unit,
+    onOpenTuner: () -> Unit,
     onOpenPermissionSettings: () -> Unit,
     onOpenPhoto: (Uri) -> Unit,
     viewfinder: @Composable (modifier: Modifier, onTap: (Offset) -> Unit) -> Unit,
@@ -181,7 +183,13 @@ private fun CameraScreenContent(
             .background(Color.Black)
     ) {
         if (uiState.hasCameraPermission) {
-            CameraControls(uiState = uiState, onEvent = onEvent, onOpenPhoto = onOpenPhoto, viewfinder = viewfinder)
+            CameraControls(
+                uiState = uiState,
+                onEvent = onEvent,
+                onOpenTuner = onOpenTuner,
+                onOpenPhoto = onOpenPhoto,
+                viewfinder = viewfinder,
+            )
         } else {
             PermissionRequest(onOpenPermissionSettings = onOpenPermissionSettings)
         }
@@ -199,6 +207,7 @@ private fun CameraScreenContent(
 private fun BoxScope.CameraControls(
     uiState: CameraViewModel.UiState,
     onEvent: (UiEvent) -> Unit,
+    onOpenTuner: () -> Unit,
     onOpenPhoto: (Uri) -> Unit,
     viewfinder: @Composable (modifier: Modifier, onTap: (Offset) -> Unit) -> Unit,
 ) {
@@ -228,6 +237,9 @@ private fun BoxScope.CameraControls(
                 Box(modifier = Modifier.align(Alignment.Center)) {
                     ProcessingIndicator(count = uiState.processingCount)
                 }
+            }
+            Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                ControlButton(icon = R.drawable.ic_tune, label = R.string.action_tune_processing, onClick = onOpenTuner)
             }
         }
         Box(
@@ -412,6 +424,7 @@ internal fun CameraScreenPreview(
         CameraScreenContent(
             uiState = config.uiState,
             onEvent = {},
+            onOpenTuner = {},
             onOpenPermissionSettings = {},
             onOpenPhoto = {},
             viewfinder = { modifier, _ -> Box(modifier = modifier.background(Color(0xFF3A3A3A))) },

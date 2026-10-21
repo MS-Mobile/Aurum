@@ -11,6 +11,7 @@ import com.msmobile.aurum.capture.CameraSession.FlashMode
 import com.msmobile.aurum.capture.CameraSession.Lens
 import com.msmobile.aurum.capture.PhotoGallery
 import com.msmobile.aurum.capture.PhotoProcessor
+import com.msmobile.aurum.processing.ProcessingSettingsStore
 import com.msmobile.aurum.util.Logger
 import com.msmobile.aurum.util.StringResource
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,8 +19,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -31,6 +30,7 @@ class CameraViewModel @Inject constructor(
     private val cameraSession: CameraSession,
     private val photoProcessor: PhotoProcessor,
     private val photoGallery: PhotoGallery,
+    private val processingSettingsStore: ProcessingSettingsStore,
     private val logger: Logger,
 ) : ViewModel() {
 
@@ -51,17 +51,17 @@ class CameraViewModel @Inject constructor(
         }
     }
 
-    /** Keeps the camera bound to [lifecycleOwner] until cancelled, rebinding whenever the lens changes. */
+    /**
+     * Keeps the camera bound to [lifecycleOwner] until cancelled, rebinding whenever the lens changes, here or in the
+     * processing tuner.
+     */
     suspend fun bindToCamera(lifecycleOwner: LifecycleOwner) {
         val lenses = cameraSession.availableLenses()
-        _uiState.update { state ->
-            state.copy(
-                lens = if (state.lens in lenses) state.lens else lenses.firstOrNull() ?: state.lens,
-                canSwitchLens = lenses.size > 1,
-            )
-        }
+        if (cameraSession.lens.value !in lenses) lenses.firstOrNull()?.let(cameraSession::selectLens)
+        _uiState.update { it.copy(canSwitchLens = lenses.size > 1) }
         try {
-            _uiState.map { it.lens }.distinctUntilChanged().collectLatest { lens ->
+            cameraSession.lens.collectLatest { lens ->
+                _uiState.update { it.copy(lens = lens) }
                 val capabilities = cameraSession.bind(lifecycleOwner, lens)
                 cameraSession.setFlashMode(_uiState.value.flashMode)
                 _uiState.update { it.copy(hasFlashUnit = capabilities.hasFlashUnit) }
@@ -95,7 +95,7 @@ class CameraViewModel @Inject constructor(
             }
             _uiState.update { it.copy(processingCount = it.processingCount + 1) }
             try {
-                val saved = photoProcessor.process(photo)
+                val saved = photoProcessor.process(photo, processingSettingsStore.settings.value)
                 _uiState.update { it.copy(lastPhoto = saved) }
             } catch (e: CancellationException) {
                 throw e
@@ -109,10 +109,8 @@ class CameraViewModel @Inject constructor(
     }
 
     private fun onSwitchLens() {
-        _uiState.update { state ->
-            if (!state.canSwitchLens) return@update state
-            state.copy(lens = if (state.lens == Lens.BACK) Lens.FRONT else Lens.BACK)
-        }
+        if (!_uiState.value.canSwitchLens) return
+        cameraSession.selectLens(cameraSession.lens.value.other())
     }
 
     private fun onCycleFlash() {
